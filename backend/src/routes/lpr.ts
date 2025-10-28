@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+import { Router, Response, Request } from 'express';
 import { body } from 'express-validator';
 import multer from 'multer';
 import path from 'path';
@@ -18,14 +18,14 @@ const router = Router();
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (req: Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
     const uploadDir = process.env.UPLOAD_PATH || './uploads';
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
     cb(null, uploadDir);
   },
-  filename: (req, file, cb) => {
+  filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, 'lpr-' + uniqueSuffix + path.extname(file.originalname));
   }
@@ -36,7 +36,7 @@ const upload = multer({
   limits: {
     fileSize: parseInt(process.env.MAX_FILE_SIZE || '5242880'), // 5MB
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
@@ -50,10 +50,10 @@ router.post('/detect', authenticateToken, upload.single('image'), [
   body('plateNumber').optional().isString(),
   body('vehicleColor').optional().isString(),
   handleValidationErrors,
-], async (req: AuthRequest, res: Response) => {
+], async (req: Request, res: Response) => {
   try {
-    const { plateNumber, vehicleColor } = req.body;
-    const file = req.file;
+    const { plateNumber, vehicleColor } = req.body as any;
+    const file = (req as AuthRequest).file;
 
     if (!file) {
       return res.status(400).json({ message: 'No image file provided' });
@@ -138,7 +138,7 @@ router.post('/records', authenticateToken, [
   body('userId').optional().isInt(),
   body('notes').optional().isString(),
   handleValidationErrors,
-], async (req: AuthRequest, res: Response) => {
+], async (req: Request, res: Response) => {
   try {
     const {
       plateNumber,
@@ -150,7 +150,7 @@ router.post('/records', authenticateToken, [
       vehicleId,
       userId,
       notes,
-    } = req.body;
+    } = req.body as any;
 
     const record = await LPRRecord.create({
       plateNumber,
@@ -208,9 +208,9 @@ async function getDominantColor(image: Jimp): Promise<string> {
 }
 
 // Get LPR records (for security/admin)
-router.get('/records', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/records', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 20, status } = req.query;
+    const { page = 1, limit = 20, status } = req.query as any;
     const offset = (Number(page) - 1) * Number(limit);
 
     const whereClause: any = {};
@@ -241,9 +241,9 @@ router.get('/records', authenticateToken, async (req: AuthRequest, res: Response
 });
 
 // Get LPR record by ID
-router.get('/records/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/records/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as any;
     const record = await LPRRecord.findByPk(id);
 
     if (!record) {
@@ -258,9 +258,9 @@ router.get('/records/:id', authenticateToken, async (req: AuthRequest, res: Resp
 });
 
 // Search for matching vehicles and reservations
-router.get('/records/:id/match', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/records/:id/match', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as any;
     const record = await LPRRecord.findByPk(id);
     
     if (!record) {
@@ -300,11 +300,11 @@ router.put('/records/:id/process', authenticateToken, [
   body('userId').optional().isInt(),
   body('notes').optional().isString(),
   handleValidationErrors,
-], async (req: AuthRequest, res: Response) => {
+], async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const { action, reservationId, vehicleId, userId, notes } = req.body;
-    const processedBy = req.user?.id;
+    const { id } = req.params as any;
+    const { action, reservationId, vehicleId, userId, notes } = req.body as any;
+    const processedBy = (req as AuthRequest).user?.id;
 
     const record = await LPRRecord.findByPk(id);
     if (!record) {
@@ -394,9 +394,9 @@ router.put('/records/:id/process', authenticateToken, [
 });
 
 // Search users for vehicle creation
-router.get('/search-users', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/search-users', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { query } = req.query;
+    const { query } = req.query as any;
     
     if (!query || query.toString().length < 2) {
       return res.status(400).json({ message: 'Search query must be at least 2 characters' });
@@ -425,9 +425,9 @@ router.get('/search-users', authenticateToken, async (req: AuthRequest, res: Res
 });
 
 // Serve uploaded images
-router.get('/images/:filename', (req, res) => {
+router.get('/images/:filename', (req: Request, res: Response) => {
   try {
-    const { filename } = req.params;
+    const { filename } = req.params as any;
     const imagePath = path.join(process.env.UPLOAD_PATH || './uploads', filename);
 
     if (!fs.existsSync(imagePath)) {
@@ -435,7 +435,7 @@ router.get('/images/:filename', (req, res) => {
     }
 
     res.sendFile(imagePath);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Serve image error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
