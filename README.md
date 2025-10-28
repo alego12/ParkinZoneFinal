@@ -5,7 +5,7 @@
 **ParkingZoneUnivalle** es un sistema completo de gestión de estacionamiento universitario que incluye:
 - 🎥 **Sistema LPR (License Plate Recognition)** con OCR avanzado
 - 🚗 **Gestión de vehículos y reservas**
-- 👥 **Múltiples roles de usuario** (Admin, Cliente, Seguridad)
+- 👥 **Múltiples roles de usuario** (Admin, Seguridad, Caja, Cliente)
 - 📊 **Dashboard en tiempo real**
 - 🔐 **Autenticación JWT**
 
