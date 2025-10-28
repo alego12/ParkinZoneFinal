@@ -108,7 +108,6 @@ uploads/
 *.sqlite
 
 # LPR Models and temporary files
-models/
 *.pkl
 *.h5
 *.onnx
