@@ -53,9 +53,18 @@ npm install
 mysql -u root -p
 CREATE DATABASE parking_zone_db;
 
-# Ejecutar scripts de inicialización
+# Ejecutar scripts de inicialización (mínimo requerido)
 mysql -u root -p parking_zone_db < database/init.sql
-mysql -u root -p parking_zone_db < database/seed_test_data.sql
+  
+# Habilitar recuperación de contraseña (tabla de códigos)
+mysql -u root -p parking_zone_db < database/create_password_resets.sql
+  
+# (Opcional) Limpiar datos de prueba existentes
+# mysql -u root -p < database/cleanup_reset_data.sql
+  
+# (Opcional) Crear usuario admin por defecto
+# Esto insertará un admin con email admin@test.com y password Admin1234*
+mysql -u root -p parking_zone_db < database/create_admin_user.sql
 ```
 
 ### 4. Configurar Variables de Entorno
@@ -89,19 +98,18 @@ npm run dev
 ## 👥 Roles de Usuario
 
 ### 🔑 Administrador
-- **Usuario**: `admin@univalle.edu`
-- **Contraseña**: `admin123`
+- **Usuario**: `admin@test.com`
+- **Contraseña**: `Admin1234*`
 - **Permisos**: Gestión completa del sistema
 
 ### 👤 Cliente
-- **Usuario**: `cliente@test.com`
-- **Contraseña**: `cliente123`
-- **Permisos**: Reservas y gestión de vehículos
+- Permisos: Reservas y gestión de vehículos
 
 ### 🛡️ Seguridad
-- **Usuario**: `guardia dilan`
-- **Contraseña**: `seguridad123`
-- **Permisos**: Sistema LPR y control de acceso
+- Permisos: Sistema LPR y control de acceso
+
+### 💼 Caja (Cashier)
+- Permisos: Operaciones de caja y monitoreo general
 
 ## 🎥 Sistema LPR (License Plate Recognition)
 
