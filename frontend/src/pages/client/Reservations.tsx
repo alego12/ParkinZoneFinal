@@ -206,7 +206,7 @@ const Reservations: React.FC = () => {
                         {new Date(reservation.startTime).toLocaleDateString()}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {new Date(reservation.startTime).toLocaleTimeString()} - {new Date(reservation.endTime).toLocaleTimeString()}
+                        {new Date(reservation.startTime).toLocaleTimeString()} - {reservation.endTime ? new Date(reservation.endTime).toLocaleTimeString() : 'En curso'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

@@ -175,7 +175,7 @@ const ClientDashboard: React.FC = () => {
                   <div>
                     <p className="text-sm text-gray-500">Fin Programado</p>
                     <p className="font-medium">
-                      {new Date(activeReservation.endTime).toLocaleString()}
+                      {activeReservation.endTime ? new Date(activeReservation.endTime).toLocaleString() : 'En curso'}
                     </p>
                   </div>
                 </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { Vehicle, ParkingSpace, Reservation } from '../types';
-import { Car, Calendar, Clock, MapPin, DollarSign, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, MapPin, DollarSign, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface CreateReservationProps {
@@ -165,7 +165,7 @@ const CreateReservation: React.FC<CreateReservationProps> = ({
         toast.error(`Error del servidor: ${errorMessage}`);
         
         // Mostrar detalles adicionales en desarrollo
-        if (process.env.NODE_ENV === 'development') {
+        if ((import.meta as any).env?.DEV) {
           console.error('Error details:', error.response?.data);
         }
       } else if (error.code === 'ERR_NETWORK') {
@@ -414,7 +414,7 @@ const CreateReservation: React.FC<CreateReservationProps> = ({
               </button>
               <button
                 type="submit"
-                disabled={loading || !selectedVehicle || vehicles.length === 0 || activeReservation}
+                disabled={loading || !selectedVehicle || vehicles.length === 0 || !!activeReservation}
                 className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Creando...' : activeReservation ? 'Cancelar Reserva Activa Primero' : 'Crear Reserva'}

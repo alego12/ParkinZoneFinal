@@ -1,15 +1,12 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
-import { DashboardStats, User, Reservation, LPRRecord } from '../../types';
+import { DashboardStats, Reservation, LPRRecord } from '../../types';
 import { 
   Users, 
   Car, 
   MapPin, 
   DollarSign, 
   TrendingUp,
-  Clock,
-  CheckCircle,
-  AlertCircle,
   Eye
 } from 'lucide-react';
 import toast from 'react-hot-toast';

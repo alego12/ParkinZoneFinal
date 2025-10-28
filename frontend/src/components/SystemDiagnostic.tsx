@@ -124,7 +124,7 @@ const SystemDiagnostic: React.FC = () => {
     } else if (errorCount > 0) {
       toast.error(`${errorCount} errores encontrados. Revisa los detalles.`);
     } else {
-      toast.warning(`${warningCount} advertencias encontradas.`);
+      toast(`${warningCount} advertencias encontradas.`);
     }
   };
 

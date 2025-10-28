@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle } from 'lucide-react';
 
 interface EasyOCRProps {
   imageData: string;

@@ -3,16 +3,12 @@ import { api } from '../../services/api';
 import { LPRRecord, User, Vehicle, Reservation } from '../../types';
 import { 
   Eye, 
-  CheckCircle, 
-  Clock, 
   AlertCircle, 
   Search, 
   UserPlus, 
   Car,
   MapPin,
   Calendar,
-  Phone,
-  Mail,
   X,
   Check
 } from 'lucide-react';
@@ -69,7 +65,7 @@ const LPRRecords: React.FC = () => {
 
   const handleMatchRecord = async (record: LPRRecord) => {
     try {
-      const response = await api.lpr.getMatch(record.id);
+      const response = await api.security.getLPRMatch(record.id);
       setSelectedRecord(record);
       setMatchData(response.data);
       setShowMatchModal(true);
@@ -90,7 +86,7 @@ const LPRRecords: React.FC = () => {
         notes
       };
 
-      await api.lpr.processRecord(selectedRecord.id, data);
+      await api.security.processLPRRecord(selectedRecord.id, data);
       toast.success('Registro procesado exitosamente');
       setShowMatchModal(false);
       setShowUserSearch(false);
@@ -112,7 +108,7 @@ const LPRRecords: React.FC = () => {
     }
 
     try {
-      const response = await api.lpr.searchUsers(query);
+      const response = await api.security.searchUsers(query);
       setSearchResults(response.data.users);
     } catch (error) {
       console.error('Error searching users:', error);
@@ -432,10 +428,10 @@ const LPRRecords: React.FC = () => {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <p className="text-sm font-medium text-gray-900">
-                            {vehicle.user?.firstName} {vehicle.user?.lastName}
+                            {(vehicle as any).user?.firstName} {(vehicle as any).user?.lastName}
                           </p>
-                          <p className="text-sm text-gray-600">{vehicle.user?.email}</p>
-                          <p className="text-sm text-gray-600">{vehicle.user?.phone}</p>
+                          <p className="text-sm text-gray-600">{(vehicle as any).user?.email}</p>
+                          <p className="text-sm text-gray-600">{(vehicle as any).user?.phone}</p>
                           <p className="text-sm text-gray-900 mt-2">
                             <Car className="h-4 w-4 inline mr-1" />
                             {vehicle.model} - {vehicle.plate}

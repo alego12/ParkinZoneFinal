@@ -1,5 +1,5 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Camera, CameraOff, Play, Pause } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Camera, CameraOff, Play } from 'lucide-react';
 
 interface SimpleCameraComponentProps {
   onTextExtracted: (text: string) => void;
@@ -13,7 +13,6 @@ const SimpleCameraComponent: React.FC<SimpleCameraComponentProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isActive, setIsActive] = useState(false);
-  const [isCapturing, setIsCapturing] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [extractedText, setExtractedText] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -74,12 +73,12 @@ const SimpleCameraComponent: React.FC<SimpleCameraComponentProps> = ({
   const extractText = async (imageData: string) => {
     setIsLoading(true);
     try {
-      const { createWorker } = await import('tesseract.js');
+      const { createWorker, PSM } = await import('tesseract.js');
       const worker = await createWorker('eng');
       
       // Configuración básica
       await worker.setParameters({
-        tessedit_pageseg_mode: '6', // Single uniform block
+        psm: PSM.SINGLE_BLOCK, // Single uniform block
       });
       
       const { data: { text } } = await worker.recognize(imageData);
