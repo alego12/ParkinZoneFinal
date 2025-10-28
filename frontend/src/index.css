@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-gray-200;
+  }
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .btn-danger {
+    @apply bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .input-field {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+  }
+  
+  .card {
+    @apply bg-white rounded-lg shadow-md p-6;
+  }
+  
+  .parking-space {
+    @apply w-12 h-8 rounded cursor-pointer transition-all duration-200 flex items-center justify-center text-xs font-medium;
+  }
+  
+  .parking-space.available {
+    @apply bg-green-500 hover:bg-green-600 text-white;
+  }
+  
+  .parking-space.occupied {
+    @apply bg-red-500 text-white cursor-not-allowed;
+  }
+  
+  .parking-space.maintenance {
+    @apply bg-yellow-500 text-white cursor-not-allowed;
+  }
+  
+  .parking-space.reserved {
+    @apply bg-blue-500 text-white cursor-not-allowed;
+  }
+}
