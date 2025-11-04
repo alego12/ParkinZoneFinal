@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -33,7 +33,7 @@ const CashierCloseout: React.FC = () => {
   const confirmCloseout = async () => {
     try {
       setConfirming(true);
-      const res = await api.closeouts.confirm({ from: from || undefined, to: to || undefined, notes: notes || undefined });
+      await api.closeouts.confirm({ from: from || undefined, to: to || undefined, notes: notes || undefined });
       // Reset preview after confirming
       setPreview(null);
       setNotes('');

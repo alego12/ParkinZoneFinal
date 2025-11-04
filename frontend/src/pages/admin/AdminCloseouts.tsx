@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -28,9 +28,7 @@ const AdminCloseouts: React.FC = () => {
   const [to, setTo] = useState<string>('');
   const [cashierId, setCashierId] = useState<string>('');
 
-  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<any | null>(null);
-  const pages = useMemo(() => Math.max(1, Math.ceil(total / limit)), [total, limit]);
 
   const fetchData = async () => {
     try {
@@ -54,7 +52,6 @@ const AdminCloseouts: React.FC = () => {
       setLoading(true);
       const res = await api.closeouts.get(id);
       setDetail(res.data);
-      setSelectedId(id);
     } catch (e) {
       console.error('Get closeout details error', e);
     } finally {
