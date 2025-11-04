@@ -1,0 +1,6 @@
+ParkingZone - Recuperación de contraseña
+Email: admin@parkingzone.com
+Código: 849231
+Solicitado: 2025-11-04T05:12:55.509Z
+Expira: 2025-11-04T05:27:55.509Z
+IP origen: ::1

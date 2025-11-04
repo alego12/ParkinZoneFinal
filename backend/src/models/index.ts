@@ -5,6 +5,8 @@ import { ParkingSpace } from './ParkingSpace';
 import { Reservation } from './Reservation';
 import { LPRRecord } from './LPRRecord';
 import { Schedule } from './Schedule';
+import { Payment } from './Payment';
+import { CashCloseout } from './CashCloseout';
 
 // Define associations
 User.hasMany(Vehicle, { foreignKey: 'userId', as: 'vehicles' });
@@ -34,6 +36,22 @@ LPRRecord.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(LPRRecord, { foreignKey: 'processedBy', as: 'processedLPRRecords' });
 LPRRecord.belongsTo(User, { foreignKey: 'processedBy', as: 'processedByUser' });
 
+// Cashier module associations
+Payment.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(Payment, { foreignKey: 'userId', as: 'payments' });
+
+Payment.belongsTo(Reservation, { foreignKey: 'reservationId', as: 'reservation' });
+Reservation.hasMany(Payment, { foreignKey: 'reservationId', as: 'payments' });
+
+Payment.belongsTo(User, { foreignKey: 'recordedBy', as: 'recordedByUser' });
+User.hasMany(Payment, { foreignKey: 'recordedBy', as: 'recordedPayments' });
+
+Payment.belongsTo(CashCloseout, { foreignKey: 'closeoutId', as: 'closeout' });
+CashCloseout.hasMany(Payment, { foreignKey: 'closeoutId', as: 'payments' });
+
+CashCloseout.belongsTo(User, { foreignKey: 'closedBy', as: 'closedByUser' });
+User.hasMany(CashCloseout, { foreignKey: 'closedBy', as: 'performedCloseouts' });
+
 // Sync database
 const syncDatabase = async () => {
   try {
@@ -56,5 +74,7 @@ export {
   Reservation,
   LPRRecord,
   Schedule,
+  Payment,
+  CashCloseout,
   syncDatabase,
 };

@@ -10,6 +10,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminPayments from './pages/admin/AdminPayments';
+import AdminCloseouts from './pages/admin/AdminCloseouts';
 import SecurityDashboard from './pages/security/SecurityDashboard';
 import LPRManagement from './pages/security/LPRManagement';
 import ClientDashboard from './pages/client/ClientDashboard';
@@ -19,6 +21,8 @@ import ParkingMap from './pages/ParkingMap';
 import UserManagement from './pages/admin/UserManagement';
 import Contact from './pages/Contact';
 import CashierDashboard from './pages/cashier/CashierDashboard';
+import CashierPayments from './pages/cashier/CashierPayments';
+import CashierCloseout from './pages/cashier/CashierCloseout';
 
 function App() {
   return (
@@ -47,6 +51,8 @@ function App() {
                   <ProtectedRoute allowedRoles={['admin']}>
                     <Routes>
                       <Route index element={<AdminDashboard />} />
+                      <Route path="payments" element={<AdminPayments />} />
+                      <Route path="closeouts" element={<AdminCloseouts />} />
                       <Route path="users" element={<UserManagement />} />
                     </Routes>
                   </ProtectedRoute>
@@ -67,6 +73,8 @@ function App() {
                   <ProtectedRoute allowedRoles={['cashier', 'admin']}>
                     <Routes>
                       <Route index element={<CashierDashboard />} />
+                      <Route path="payments" element={<CashierPayments />} />
+                      <Route path="closeout" element={<CashierCloseout />} />
                     </Routes>
                   </ProtectedRoute>
                 } />

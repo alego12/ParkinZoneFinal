@@ -5,6 +5,7 @@ import { Search, UserPlus, CheckCircle, XCircle, Clock, AlertTriangle } from 'lu
 import toast from 'react-hot-toast';
 // Removed CameraComponent to focus on manual flow
 import ClientInfoModal from '../../components/ClientInfoModal';
+import SpaceDetailModal from '../../components/SpaceDetailModal';
 
 interface MatchResult {
   record: LPRRecord;
@@ -28,6 +29,9 @@ const LPRManagement: React.FC = () => {
   const [availableSpaces, setAvailableSpaces] = useState<ParkingSpace[]>([]);
   const [manualPlate, setManualPlate] = useState('');
   const [historyRecords, setHistoryRecords] = useState<LPRRecord[]>([]);
+  // Reuse SpaceDetailModal for exit flow
+  const [selectedSpace, setSelectedSpace] = useState<ParkingSpace | null>(null);
+  const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false);
 
   useEffect(() => {
     fetchRecords();
@@ -141,14 +145,38 @@ const LPRManagement: React.FC = () => {
   // Función para manejar vehículo existente
   const handleExistingVehicle = async (vehicle: any) => {
     try {
-      // 1) Buscar reserva existente (pendiente/activa) para este vehículo
+      // 1) Buscar reservas para este vehículo
       const reservationsResp = await api.security.getReservations();
       const allReservations = reservationsResp.data?.reservations || [];
-      // Consider only non-finalized reservations: correct status AND no endTime
-      const candidateReservations = allReservations
-        .filter((r: any) => r.vehicleId === vehicle.id)
+      const reservationsByVehicle = allReservations.filter((r: any) => r.vehicleId === vehicle.id);
+      // Caso SALIDA: si hay una reserva 'occupied' con plaza asignada
+      const occupiedReservation = reservationsByVehicle
+        .filter((r: any) => r.status === 'occupied' && !!(r.parkingSpaceId || r.parkingSpace))
+        .sort((a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())[0];
+
+      if (occupiedReservation) {
+        const spaceId = occupiedReservation.parkingSpaceId || occupiedReservation.parkingSpace?.id;
+        if (!spaceId) {
+          toast.error('No se pudo determinar la plaza ocupada para salida');
+          return;
+        }
+        console.log('[LPR] Exit detected for space', spaceId, 'opening SpaceDetailModal');
+        try {
+          const details = await api.security.getSpaceDetails(spaceId);
+          const space: ParkingSpace = details.data.space;
+          setSelectedSpace(space);
+          setIsSpaceModalOpen(true);
+        } catch (e) {
+          console.error('No se pudo cargar detalles del espacio para salida', e);
+          toast.error('No se pudo abrir el modal del espacio');
+        }
+        return; // Evitar flujo de entrada
+      }
+
+      // Caso ENTRADA: Consider only non-finalized reservations: active/pending AND no endTime
+      const candidateReservations = reservationsByVehicle
         .filter((r: any) => ['pending', 'active'].includes(r.status))
-        .filter((r: any) => !r.endTime); // endTime must be null/undefined
+        .filter((r: any) => !r.endTime);
 
       // Pick the most recent by startTime if multiple
       const existingReservation = candidateReservations
@@ -190,7 +218,7 @@ const LPRManagement: React.FC = () => {
           parkingSpaceId: availableSpace.id,
           startTime: new Date().toISOString(),
           endTime: null,
-          status: 'active',
+          status: 'occupied',
           notes: 'Entrada automática por LPR'
         };
 
@@ -285,7 +313,7 @@ const LPRManagement: React.FC = () => {
               parkingSpaceId: availableSpace.id,
               startTime: new Date().toISOString(),
               endTime: null,
-              status: 'active',
+              status: 'occupied',
               notes: 'Entrada automática por LPR - Usuario nuevo'
             };
 
@@ -678,6 +706,22 @@ const LPRManagement: React.FC = () => {
                                   {new Date(reservation.startTime).toLocaleString()}
                                 </p>
                               </div>
+                              {selectedSpace && (
+                                <SpaceDetailModal
+                                  space={selectedSpace}
+                                  isOpen={isSpaceModalOpen}
+                                  autoOpenPayment={true}
+                                  initialMethod={'cash'}
+                                  onClose={() => {
+                                    setIsSpaceModalOpen(false);
+                                    setSelectedSpace(null);
+                                    // refrescar listados tras cerrar
+                                    fetchAvailableSpaces();
+                                    fetchRecords();
+                                    fetchAllRecords();
+                                  }}
+                                />
+                              )}
                               <button
                                 onClick={() => handleProcessRecord('match_reservation', { 
                                   reservationId: reservation.id,
@@ -795,6 +839,7 @@ const LPRManagement: React.FC = () => {
                     <th className="py-2 pr-4">Fecha</th>
                     <th className="py-2 pr-4">Placa</th>
                     <th className="py-2 pr-4">Color</th>
+                    <th className="py-2 pr-4">Tipo</th>
                     <th className="py-2 pr-4">Estado</th>
                     <th className="py-2 pr-4">Imagen</th>
                   </tr>
@@ -805,6 +850,7 @@ const LPRManagement: React.FC = () => {
                       <td className="py-2 pr-4">{new Date(r.detectedAt).toLocaleString()}</td>
                       <td className="py-2 pr-4 font-mono">{r.plateNumber}</td>
                       <td className="py-2 pr-4">{r.vehicleColor}</td>
+                      <td className="py-2 pr-4 capitalize">{(r as any).type || 'entry'}</td>
                       <td className="py-2 pr-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(r.status)}`}>
                           {r.status}
@@ -819,6 +865,25 @@ const LPRManagement: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Modal de espacio (salida) */}
+      {selectedSpace && (
+        <SpaceDetailModal
+          space={selectedSpace}
+          isOpen={isSpaceModalOpen}
+          autoOpenPayment={true}
+          initialMethod={'cash'}
+          paymentOnly={true}
+          onClose={() => {
+            setIsSpaceModalOpen(false);
+            setSelectedSpace(null);
+            // refrescar listados tras cerrar
+            fetchAvailableSpaces();
+            fetchRecords();
+            fetchAllRecords();
+          }}
+        />
+      )}
 
       {/* Modal de información del cliente */}
       <ClientInfoModal

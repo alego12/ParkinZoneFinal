@@ -1,4 +1,6 @@
 import { Router, Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { body } from 'express-validator';
 import { QueryTypes } from 'sequelize';
 import { User } from '../models/User';
@@ -191,13 +193,68 @@ router.post('/forgot-password', [
       { replacements: [user.id, code], type: QueryTypes.INSERT }
     );
 
-    // Send email
+    // Send email with attachment (.txt)
     const subject = 'Código de recuperación de contraseña';
     const text = `Tu código de recuperación es: ${code}. Expira en 15 minutos.`;
     const html = `<p>Tu código de recuperación es: <strong>${code}</strong>.</p><p>Expira en 15 minutos.</p>`;
-    try { await sendEmail(user.email, subject, text, html); } catch (e) { console.error('Send reset code email error:', e); }
+    const requestedAt = new Date();
+    const expiresAt = new Date(requestedAt.getTime() + 15*60*1000);
+    const infoTxt = [
+      'ParkingZone - Recuperación de contraseña',
+      `Email: ${user.email}`,
+      `Código: ${code}`,
+      `Solicitado: ${requestedAt.toISOString()}`,
+      `Expira: ${expiresAt.toISOString()}`,
+      `IP origen: ${req.ip || 'desconocida'}`,
+      ''
+    ].join('\n');
+    // Try to send email (best-effort, can be disabled via env)
+    const sendEmails = (process.env.SEND_RESET_EMAIL || '').toLowerCase() !== 'false';
+    const hasSmtp = Boolean(process.env.SMTP_USER) && Boolean(process.env.SMTP_PASS);
+    if (sendEmails && hasSmtp) {
+      try {
+        await sendEmail(
+          user.email,
+          subject,
+          text,
+          html,
+          [
+            {
+              filename: 'reset_info.txt',
+              content: infoTxt,
+              contentType: 'text/plain; charset=utf-8',
+            },
+          ]
+        );
+      } catch (e) {
+        console.error('Send reset code email error (continuing with local file export):', e);
+      }
+    } else {
+      console.log('Email sending disabled or SMTP not configured. Skipping send for forgot-password.');
+    }
 
-    return res.json({ message: 'If the email exists, a code has been sent' });
+    // Always export a local TXT file for dev/testing (no SMTP)
+    let infoFilePath: string | null = null;
+    try {
+      const outDir = path.join(process.cwd(), 'reset_exports');
+      fs.mkdirSync(outDir, { recursive: true });
+      const safeEmail = String(user.email).replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileName = `reset_${safeEmail}_${requestedAt.getTime()}.txt`;
+      infoFilePath = path.join(outDir, fileName);
+      fs.writeFileSync(infoFilePath, infoTxt, 'utf8');
+    } catch (e) {
+      console.error('Failed to write local reset TXT:', e);
+    }
+
+    // Console log for local testing visibility
+    console.log(`[ForgotPassword] Email: ${user.email} | Code: ${code} | File: ${infoFilePath || 'N/A'}`);
+
+    // In non-production, return code and file path to facilitate manual testing
+    const payload: any = { message: 'If the email exists, a code has been sent' };
+    if (process.env.NODE_ENV !== 'production') {
+      payload.debug = { code, infoFilePath };
+    }
+    return res.json(payload);
   } catch (error) {
     console.error('Forgot password error:', error);
     return res.status(500).json({ message: 'Internal server error' });

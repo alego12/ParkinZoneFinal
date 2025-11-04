@@ -5,7 +5,7 @@ import { ParkingSpace } from '../models/ParkingSpace';
 import { Vehicle } from '../models/Vehicle';
 import { User } from '../models/User';
 import { Schedule } from '../models/Schedule';
-import { authenticateToken, requireClient, requireClientOrCashier, requireAdmin, AuthRequest } from '../middleware/auth';
+import { authenticateToken, requireClient, requireClientOrCashier, requireAdmin, requireRole, AuthRequest } from '../middleware/auth';
 import { handleValidationErrors } from '../middleware/validation';
 import sequelize from '../config/database';
 
@@ -317,10 +317,11 @@ router.get('/active', authenticateToken, requireClient, async (req: AuthRequest,
 });
 
 // Create reservation
-router.post('/', authenticateToken, requireClientOrCashier, [
+router.post('/', authenticateToken, requireRole(['client', 'cashier', 'admin']), [
   body('vehicleId').isInt({ min: 1 }),
   body('parkingSpaceId').isInt({ min: 1 }),
   body('startTime').isISO8601(),
+  body('status').optional().isIn(['active','occupied','completed','cancelled']),
   body('targetUserId').optional().isInt({ min: 1 }),
   body('endTime').optional().custom((value) => {
     if (value === null || value === undefined) return true; // Allow null/undefined for indefinite reservations
@@ -335,12 +336,12 @@ router.post('/', authenticateToken, requireClientOrCashier, [
   handleValidationErrors,
 ], async (req: AuthRequest, res: Response) => {
   try {
-    const { vehicleId, parkingSpaceId, startTime, endTime, targetUserId } = req.body;
+    const { vehicleId, parkingSpaceId, startTime, endTime, targetUserId, status } = req.body;
     const requesterUserId = req.user!.id;
     const userRole = req.user!.role;
 
     // Determine reservation owner
-    const reservationUserId = userRole === 'cashier' && targetUserId ? Number(targetUserId) : requesterUserId;
+    const reservationUserId = (userRole === 'cashier' || userRole === 'admin') && targetUserId ? Number(targetUserId) : requesterUserId;
 
     console.log('📝 Creando reserva con datos:', {
       vehicleId,
@@ -376,10 +377,10 @@ router.post('/', authenticateToken, requireClientOrCashier, [
       if (!vehicle) {
         return res.status(404).json({ message: 'Vehicle not found' });
       }
-    } else if (userRole === 'cashier') {
-      // For cashiers, verify the target user and vehicle ownership
+    } else if (userRole === 'cashier' || userRole === 'admin') {
+      // For cashiers and admins, verify the target user and vehicle ownership
       if (!targetUserId) {
-        return res.status(400).json({ message: 'targetUserId is required for cashier reservations' });
+        return res.status(400).json({ message: 'targetUserId is required for cashier/admin reservations' });
       }
       const clientUser = await User.findByPk(targetUserId);
       if (!clientUser || clientUser.role !== 'client' || !clientUser.isActive) {
@@ -446,12 +447,7 @@ router.post('/', authenticateToken, requireClientOrCashier, [
       });
     }
 
-    // Check if start time is within schedule
-    if (!isTimeWithinSchedule(start, schedule)) {
-      return res.status(400).json({ 
-        message: `Reservations can only start between ${schedule.startTime} and ${schedule.endTime} on ${schedule.name}` 
-      });
-    }
+    // Schedule validation removed - reservations can be made at any time
 
     // Calculate amount based on vehicle type, duration, and schedule
     let totalAmount = 0;
@@ -526,13 +522,19 @@ router.post('/', authenticateToken, requireClientOrCashier, [
       totalAmount
     });
 
+    // Determine target reservation status
+    // Clients always create 'active' (futuras). Cashiers/Admin can set 'occupied' for entradas físicas.
+    const desiredStatus: 'active' | 'occupied' = (userRole === 'cashier' || userRole === 'admin') && status === 'occupied'
+      ? 'occupied'
+      : 'active';
+
     const reservationData: any = {
       userId: reservationUserId,
       vehicleId,
       parkingSpaceId,
       startTime: start,
       totalAmount: parseFloat(totalAmount.toString()), // Ensure it's a number
-      status: 'active',
+      status: desiredStatus,
       paymentStatus: 'pending',
     };
 
@@ -551,9 +553,10 @@ router.post('/', authenticateToken, requireClientOrCashier, [
       const reservation = await Reservation.create(reservationData, { transaction });
       console.log('✅ Reserva creada exitosamente:', reservation.id);
 
-      // Update parking space status
-      await parkingSpace.update({ status: 'reserved' }, { transaction });
-      console.log('✅ Estado del espacio actualizado a reservado');
+      // Update parking space status according to reservation status
+      const newSpaceStatus = desiredStatus === 'active' ? 'reserved' : 'occupied';
+      await parkingSpace.update({ status: newSpaceStatus }, { transaction });
+      console.log(`✅ Estado del espacio actualizado a ${newSpaceStatus}`);
 
       // Commit transaction
       await transaction.commit();

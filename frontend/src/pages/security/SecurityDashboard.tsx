@@ -123,7 +123,7 @@ const SecurityDashboard: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900">Panel de Seguridad</h1>
         <div className="flex items-center space-x-4">
           <button
-            onClick={() => window.location.href = '/security/lpr-management'}
+            onClick={() => window.location.href = '/security/lpr'}
             className="btn-secondary flex items-center space-x-2"
           >
             <Settings className="h-4 w-4" />

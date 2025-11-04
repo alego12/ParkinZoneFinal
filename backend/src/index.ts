@@ -14,6 +14,8 @@ import adminRoutes from './routes/admin';
 import securityRoutes from './routes/security';
 import pdfRoutes from './routes/pdf';
 import lprRoutes from './routes/lpr';
+import paymentsRoutes from './routes/payments';
+import closeoutRoutes from './routes/closeouts';
 
 // Import database
 import { syncDatabase } from './models';
@@ -81,6 +83,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/security', securityRoutes);
 app.use('/api/pdf', pdfRoutes);
 app.use('/api/lpr', lprRoutes);
+app.use('/api/payments', paymentsRoutes);
+app.use('/api/closeouts', closeoutRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req: express.Request, res: express.Response) => {

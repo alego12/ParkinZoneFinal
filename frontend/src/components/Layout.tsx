@@ -10,7 +10,8 @@ import {
   MessageCircle,
   LogOut,
   Menu,
-  X
+  X,
+  DollarSign
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -34,6 +35,8 @@ const Layout: React.FC = () => {
   const adminNavigation = [
     { name: 'Panel Admin', href: '/admin', icon: Shield, roles: ['admin'] },
     { name: 'Gestión de Usuarios', href: '/admin/users', icon: Users, roles: ['admin'] },
+    { name: 'Pagos', href: '/admin/payments', icon: DollarSign, roles: ['admin'] },
+    { name: 'Reportes de Caja', href: '/admin/closeouts', icon: DollarSign, roles: ['admin'] },
   ];
 
   const securityNavigation = [
@@ -43,6 +46,8 @@ const Layout: React.FC = () => {
 
   const cashierNavigation = [
     { name: 'Panel Caja', href: '/cashier', icon: Shield, roles: ['cashier'] },
+    { name: 'Mis Pagos', href: '/cashier/payments', icon: DollarSign, roles: ['cashier'] },
+    { name: 'Cierre de Caja', href: '/cashier/closeout', icon: DollarSign, roles: ['cashier'] },
   ];
 
   const clientNavigation = [

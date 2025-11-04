@@ -9,6 +9,7 @@ export interface LPRRecordAttributes {
   imagePath: string;
   confidence: number;
   status: 'pending' | 'matched' | 'no_match' | 'processed' | 'vehicle_created';
+  type?: 'entry' | 'exit';
   reservationId?: number;
   vehicleId?: number;
   userId?: number;
@@ -29,6 +30,7 @@ export class LPRRecord extends Model<LPRRecordAttributes, LPRRecordCreationAttri
   public imagePath!: string;
   public confidence!: number;
   public status!: 'pending' | 'matched' | 'no_match' | 'processed' | 'vehicle_created';
+  public type?: 'entry' | 'exit';
   public reservationId?: number;
   public vehicleId?: number;
   public userId?: number;
@@ -71,6 +73,11 @@ LPRRecord.init(
       type: DataTypes.ENUM('pending', 'matched', 'no_match', 'processed', 'vehicle_created'),
       allowNull: false,
       defaultValue: 'pending',
+    },
+    type: {
+      type: DataTypes.ENUM('entry', 'exit'),
+      allowNull: true,
+      defaultValue: 'entry',
     },
     reservationId: {
       type: DataTypes.INTEGER,

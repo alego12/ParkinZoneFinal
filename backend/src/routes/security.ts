@@ -6,6 +6,7 @@ import { User } from '../models/User';
 import { ParkingSpace } from '../models/ParkingSpace';
 import { Reservation } from '../models/Reservation';
 import { Schedule } from '../models/Schedule';
+import { Payment } from '../models/Payment';
 import { authenticateToken, requireRole, AuthRequest } from '../middleware/auth';
 import { handleValidationErrors } from '../middleware/validation';
 import { hashPassword } from '../utils/bcrypt';
@@ -37,6 +38,91 @@ router.get('/vehicles', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Prepare checkout: compute amount without changing state
+router.post('/parking/spaces/:id/prepare-checkout', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const space = await ParkingSpace.findByPk(id, { include: [{ model: Schedule, as: 'schedule' }] });
+    if (!space) return res.status(404).json({ message: 'Parking space not found' });
+
+    const reservation = await Reservation.findOne({
+      where: { parkingSpaceId: id, status: { [Op.in]: ['active', 'occupied'] } },
+      include: [
+        { model: User, as: 'user', attributes: ['firstName','lastName','email'] },
+        { model: Vehicle, as: 'vehicle', attributes: ['model','plate','color','type'] },
+      ],
+      order: [['startTime','DESC']]
+    });
+    if (!reservation) return res.status(404).json({ message: 'Active/occupied reservation not found' });
+
+    // Compute approximate amount: base rate x hours (ceil at least 1)
+    const now = new Date();
+    const startTime = new Date(reservation.startTime);
+    const durationHours = Math.max(1, Math.ceil((now.getTime() - startTime.getTime()) / (1000 * 60 * 60)));
+    const baseRate = reservation.vehicleId ? (space.carRate || 0) : (space.carRate || 0);
+    const amount = Number((durationHours * baseRate).toFixed(2));
+
+    return res.json({
+      message: 'Checkout prepared',
+      reservation,
+      suggestedAmount: amount,
+      durationHours,
+      baseRate,
+    });
+  } catch (error) {
+    console.error('Prepare checkout error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Atomic checkout: complete reservation, free space, create payment (transactional)
+// Only cashier and admin can perform checkout
+router.post('/parking/spaces/:id/checkout', authenticateToken, requireRole(['cashier','admin']), [
+  body('method').isIn(['cash','qr','card']),
+  body('amount').isFloat({ gt: 0 }),
+  body('reference').optional().isString(),
+  body('notes').optional().isString(),
+  handleValidationErrors,
+], async (req: AuthRequest, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const { method, amount, reference, notes } = req.body as { method: 'cash'|'qr'|'card'; amount: number; reference?: string; notes?: string };
+
+    const space = await ParkingSpace.findByPk(id, { transaction: t, lock: t.LOCK.UPDATE });
+    if (!space) { await t.rollback(); return res.status(404).json({ message: 'Parking space not found' }); }
+
+    const reservation = await Reservation.findOne({
+      where: { parkingSpaceId: id, status: { [Op.in]: ['active', 'occupied'] } },
+      order: [['startTime','DESC']],
+      transaction: t,
+      lock: t.LOCK.UPDATE
+    });
+    if (!reservation) { await t.rollback(); return res.status(404).json({ message: 'Active/occupied reservation not found' }); }
+
+    const endTime = new Date();
+    const updatedReservation = await reservation.update({ status: 'completed', endTime, totalAmount: parseFloat(amount as any), paymentStatus: 'paid' }, { transaction: t });
+
+    await space.update({ status: 'available' }, { transaction: t });
+
+    const payment = await Payment.create({
+      userId: updatedReservation.userId,
+      reservationId: updatedReservation.id,
+      amount: parseFloat(amount as any),
+      method,
+      reference: reference || null,
+      notes: notes || 'Pago desde checkout',
+      recordedBy: req.user!.id,
+    }, { transaction: t });
+
+    await t.commit();
+    return res.json({ message: 'Checkout completed', reservation: updatedReservation, payment, space: { id: space.id, status: 'available' } });
+  } catch (error) {
+    try { await t.rollback(); } catch {}
+    console.error('Checkout error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
 // Create client + vehicle + reservation atomically
 router.post('/clients/with-vehicle-reservation', [
   body('user.firstName').notEmpty().trim().withMessage('Nombre es requerido'),
@@ -101,7 +187,7 @@ router.post('/clients/with-vehicle-reservation', [
       userId: user.id,
     }, { transaction: t });
 
-    // Create reservation
+    // Create reservation (cashier flow from map => active)
     const startTime = new Date(reservationData.startTime);
     const endTime = reservationData.endTime ? new Date(reservationData.endTime) : null;
     const reservation = await Reservation.create({
@@ -380,7 +466,7 @@ router.put('/parking/spaces/:id/status', [
   }
 });
 
-// Manually liberate parking space (security only)
+// Manually liberate parking space (security, cashier, admin)
 router.post('/parking/spaces/:id/liberate', [
   body('reason').optional().isString(),
   body('notes').optional().isString(),
@@ -389,10 +475,10 @@ router.post('/parking/spaces/:id/liberate', [
   try {
     const { id } = req.params;
     const { reason = 'Manual liberation by security', notes } = req.body;
-    const securityUserId = req.user?.id;
+    const actorUserId = req.user?.id;
 
-    if (!securityUserId) {
-      return res.status(401).json({ message: 'Security user not authenticated' });
+    if (!actorUserId) {
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     const space = await ParkingSpace.findByPk(id);
@@ -400,11 +486,11 @@ router.post('/parking/spaces/:id/liberate', [
       return res.status(404).json({ message: 'Parking space not found' });
     }
 
-    if (space.status !== 'occupied') {
-      return res.status(400).json({ message: 'Space is not currently occupied' });
+    if (!['occupied','reserved'].includes(space.status)) {
+      return res.status(400).json({ message: 'Space is neither occupied nor reserved' });
     }
 
-    // Find active reservation for this space
+    // Find active/reserved reservation for this space
     const activeReservation = await Reservation.findOne({
       where: {
         parkingSpaceId: id,
@@ -431,21 +517,26 @@ router.post('/parking/spaces/:id/liberate', [
 
     let completedReservation = null;
 
-    // If there's an active reservation, complete it
+    // If there's an active reservation
     if (activeReservation) {
       const endTime = new Date();
-      const startTime = new Date(activeReservation.startTime);
-      const durationHours = Math.max(1, Math.ceil((endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)));
-      
-      // Calculate final amount (basic calculation)
-      const baseRate = space.carRate || 0;
-      const finalAmount = baseRate * durationHours;
-
-      completedReservation = await activeReservation.update({
-        status: 'completed',
-        endTime,
-        totalAmount: finalAmount
-      });
+      if (space.status === 'occupied') {
+        const startTime = new Date(activeReservation.startTime);
+        const durationHours = Math.max(1, Math.ceil((endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)));
+        const baseRate = space.carRate || 0;
+        const finalAmount = baseRate * durationHours;
+        completedReservation = await activeReservation.update({
+          status: 'completed',
+          endTime,
+          totalAmount: finalAmount
+        });
+      } else {
+        // reserved -> cancel without charge
+        completedReservation = await activeReservation.update({
+          status: 'cancelled',
+          endTime,
+        });
+      }
     }
 
     // Update parking space status to available
@@ -454,14 +545,14 @@ router.post('/parking/spaces/:id/liberate', [
     });
 
     // Log the security action
-    console.log(`Security action: Space ${space.spaceNumber} liberated by security user ${securityUserId}. Reason: ${reason}`);
+    console.log(`Liberation: Space ${space.spaceNumber} liberated by user ${actorUserId}. Reason: ${reason}`);
 
     res.json({
       message: 'Parking space liberated successfully',
       space: updatedSpace,
       reservation: completedReservation,
       action: {
-        performedBy: securityUserId,
+        performedBy: actorUserId,
         reason,
         notes,
         timestamp: new Date()
@@ -476,7 +567,7 @@ router.post('/parking/spaces/:id/liberate', [
 // Security: create reservation (indefinite) and assign space
 router.post('/reservations', async (req: AuthRequest, res: Response) => {
   try {
-    const { vehicleId, parkingSpaceId, startTime, endTime = null } = req.body;
+    const { vehicleId, parkingSpaceId, startTime, endTime = null, status } = req.body;
     const securityUserId = req.user?.id;
 
     if (!vehicleId || !parkingSpaceId || !startTime) {
@@ -493,6 +584,9 @@ router.post('/reservations', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'Parking space is not available' });
     }
 
+    // Determine status (security/camera flow => default occupied)
+    const desiredStatus: 'occupied' | 'active' = status === 'active' ? 'active' : 'occupied';
+
     // Create reservation
     const reservation = await Reservation.create({
       userId: vehicle.userId || securityUserId || 0,
@@ -500,12 +594,14 @@ router.post('/reservations', async (req: AuthRequest, res: Response) => {
       parkingSpaceId,
       startTime: new Date(startTime),
       endTime: endTime ? new Date(endTime) : null,
-      status: 'active',
+      status: desiredStatus,
       totalAmount: 0,
       paymentStatus: 'pending'
     });
 
-    await space.update({ status: 'reserved' });
+    // Update space according to reservation status
+    const newSpaceStatus = desiredStatus === 'active' ? 'reserved' : 'occupied';
+    await space.update({ status: newSpaceStatus });
 
     res.status(201).json({ message: 'Reservation created', reservation });
   } catch (error) {

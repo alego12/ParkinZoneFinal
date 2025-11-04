@@ -10,8 +10,8 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export async function sendEmail(to: string, subject: string, text: string, html?: string) {
+export async function sendEmail(to: string, subject: string, text: string, html?: string, attachments?: any[]) {
   const from = process.env.SMTP_FROM || process.env.SMTP_USER || '';
   if (!from) throw new Error('SMTP_FROM or SMTP_USER is required');
-  return transporter.sendMail({ from, to, subject, text, html });
+  return transporter.sendMail({ from, to, subject, text, html, attachments });
 }

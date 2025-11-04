@@ -133,6 +133,7 @@ router.post('/records', authenticateToken, [
   body('imagePath').optional().isString(),
   body('confidence').optional().isFloat({ min: 0, max: 1 }),
   body('status').optional().isString(),
+  body('type').optional().isIn(['entry','exit']),
   body('reservationId').optional().isInt(),
   body('vehicleId').optional().isInt(),
   body('userId').optional().isInt(),
@@ -150,7 +151,39 @@ router.post('/records', authenticateToken, [
       vehicleId,
       userId,
       notes,
+      type,
     } = req.body as any;
+
+    // Try to auto-resolve missing references by plate
+    let resolvedVehicleId = vehicleId ?? null;
+    let resolvedUserId = userId ?? null;
+    let resolvedReservationId = reservationId ?? null;
+
+    if (!resolvedVehicleId || !resolvedUserId) {
+      const vehicle = await Vehicle.findOne({ where: { plate: plateNumber } });
+      if (vehicle) {
+        resolvedVehicleId = resolvedVehicleId ?? vehicle.id;
+        resolvedUserId = resolvedUserId ?? (vehicle.userId ?? null);
+      }
+    }
+
+    if (!resolvedReservationId) {
+      const reservation = await Reservation.findOne({
+        where: {
+          status: { [Op.in]: ['active', 'occupied'] },
+          ...(resolvedVehicleId ? { vehicleId: resolvedVehicleId } : {}),
+        },
+        order: [['startTime','DESC']],
+      });
+      if (reservation) {
+        resolvedReservationId = reservation.id;
+        // if still missing resolved user/vehicle, take from reservation
+        resolvedVehicleId = resolvedVehicleId ?? reservation.vehicleId;
+        resolvedUserId = resolvedUserId ?? reservation.userId;
+      }
+    }
+
+    const actorId = (req as AuthRequest).user?.id ?? undefined;
 
     const record = await LPRRecord.create({
       plateNumber,
@@ -159,9 +192,12 @@ router.post('/records', authenticateToken, [
       imagePath: imagePath ?? 'manual-entry',
       confidence: confidence ?? 1.0,
       status: status || 'pending',
-      reservationId: reservationId ?? null,
-      vehicleId: vehicleId ?? null,
-      userId: userId ?? null,
+      type: type || 'entry',
+      reservationId: resolvedReservationId ?? undefined,
+      vehicleId: resolvedVehicleId ?? undefined,
+      userId: resolvedUserId ?? undefined,
+      processedBy: actorId,
+      processedAt: actorId ? new Date() : undefined,
       notes: notes || 'Registro manual',
     });
 

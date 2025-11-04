@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { ParkingSpace, Reservation, Schedule } from '../types';
-import { X, MapPin, Clock, Car, User, Phone, Calendar, DollarSign, Unlock, AlertTriangle } from 'lucide-react';
+import { X, MapPin, Clock, Car, User, Phone, Calendar, DollarSign, Unlock, AlertTriangle, QrCode, CreditCard, Banknote } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface SpaceDetailModalProps {
   space: ParkingSpace;
   isOpen: boolean;
   onClose: () => void;
+  autoOpenPayment?: boolean;
+  initialMethod?: 'cash' | 'qr' | 'card';
+  paymentOnly?: boolean;
 }
 
 interface SpaceDetails {
@@ -33,7 +37,9 @@ interface SpaceDetails {
   recentReservations: Reservation[];
 }
 
-const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onClose }) => {
+const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onClose, autoOpenPayment = false, initialMethod = 'cash', paymentOnly = false }) => {
+  const { user } = useAuth();
+  const canPay = Boolean(user && (user.role === 'admin' || user.role === 'cashier'));
   const [details, setDetails] = useState<SpaceDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [showLiberateModal, setShowLiberateModal] = useState(false);
@@ -41,6 +47,18 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
   const [liberateNotes, setLiberateNotes] = useState('');
   const [liberating, setLiberating] = useState(false);
   const [pendingMaintenance, setPendingMaintenance] = useState(false);
+
+  // Payment modal state
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentReservation, setPaymentReservation] = useState<Reservation | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState<number>(0);
+  const [paymentMethod, setPaymentMethod] = useState<'cash'|'qr'|'card'>('cash');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+
+  // New: quick method selection modal for "Liberar Espacio"
+  const [showMethodModal, setShowMethodModal] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState<'cash'|'qr'|'card'>('cash');
 
   useEffect(() => {
     if (isOpen && space) {
@@ -55,6 +73,40 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
       const response = await api.security.getSpaceDetails(space.id);
       console.log('Space details response:', response.data);
       setDetails(response.data);
+      // Si debemos abrir directamente el modal de pago
+      if (autoOpenPayment) {
+        if (!canPay) {
+          // Seguridad no puede abrir cobro automático
+          console.warn('Usuario sin permisos de pago intentando autoOpenPayment');
+        } else {
+          try {
+            // Verificar si hay una reserva activa antes de intentar preparar checkout
+            if (response.data.currentReservation) {
+              const preview = await api.security.prepareCheckout(space.id);
+              const reservation = preview.data?.reservation as Reservation | undefined;
+              const amt = Number(preview.data?.suggestedAmount || 0);
+              if (reservation?.id) {
+                setPaymentReservation(reservation);
+                setPaymentAmount(amt);
+                setPaymentMethod(initialMethod);
+                setSelectedMethod(initialMethod);
+                setPaymentReference('');
+                setShowMethodModal(false);
+                setShowPaymentModal(true);
+              }
+            } else {
+              console.warn('No hay reserva activa para preparar checkout');
+              // Si no hay reserva, simplemente no abrimos el modal de pago automáticamente
+            }
+          } catch (e: any) {
+            console.error('Error preparando checkout automático', e);
+            // Si es un 404, probablemente no hay reserva activa - esto es normal
+            if (e.response?.status === 404) {
+              console.warn('No se encontró reserva activa para checkout (esto es normal si el espacio está libre)');
+            }
+          }
+        }
+      }
     } catch (error: any) {
       console.error('Error fetching space details:', error);
       console.error('Error details:', error.response?.data);
@@ -160,7 +212,18 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
       
       toast.success('Espacio liberado exitosamente');
       
-      // Close modals and refresh data
+      // Prepare payment if reservation completed
+      const completed = response.data?.reservation as Reservation | undefined;
+      if (completed && completed.id) {
+        setPaymentReservation(completed);
+        const amt = typeof completed.totalAmount === 'number' ? completed.totalAmount : parseFloat(String(completed.totalAmount || 0));
+        setPaymentAmount(Number.isFinite(amt) ? amt : 0);
+        setPaymentMethod('cash');
+        setPaymentReference('');
+        setShowPaymentModal(true);
+      }
+
+      // Close liberation modal and refresh lists
       setShowLiberateModal(false);
       setLiberateReason('');
       setLiberateNotes('');
@@ -173,13 +236,13 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
         detail: { spaceId: space.id, newStatus: 'available' } 
       }));
 
-      // If maintenance was requested, change to maintenance now
+      // If maintenance was requested, defer payment modal until after maintenance change
       if (pendingMaintenance) {
         await handleChangeStatus('maintenance');
         setPendingMaintenance(false);
       }
-      
-      if (!pendingMaintenance) {
+      // Do not close parent yet if payment modal is open
+      if (!showPaymentModal && !pendingMaintenance) {
         onClose();
       }
       
@@ -194,9 +257,106 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
 
   if (!isOpen) return null;
 
+  // Confirma método y abre modal de pago (no libera aún)
+  const handleConfirmMethodAndLiberate = async () => {
+    if (!canPay) {
+      toast.error('Acción reservada para cajeros y administradores');
+      setShowMethodModal(false);
+      return;
+    }
+    try {
+      setPaymentProcessing(true);
+      // Obtener monto sugerido sin cambiar estado
+      const preview = await api.security.prepareCheckout(space.id);
+      const reservation = preview.data?.reservation as Reservation | undefined;
+      const amt = Number(preview.data?.suggestedAmount || 0);
+
+      if (!reservation?.id) {
+        toast.error('No hay reserva activa/ocupada para este espacio');
+        setShowMethodModal(false);
+        return;
+      }
+
+      // Abrir SIEMPRE modal de pago, y requerir referencia al confirmar
+      setPaymentReservation(reservation);
+      setPaymentAmount(amt);
+      setPaymentMethod(selectedMethod);
+      setPaymentReference('');
+      setShowPaymentModal(true);
+      setShowMethodModal(false);
+    } catch (e: any) {
+      console.error('Liberate & pay error', e);
+      toast.error(e?.response?.data?.message || 'Error al liberar y registrar pago');
+    } finally {
+      setPaymentProcessing(false);
+    }
+  };
+
+  // Registrar pago desde el modal de pago (requerir referencia y método elegido)
+  const handleCreatePayment = async () => {
+    if (!canPay) {
+      toast.error('Acción reservada para cajeros y administradores');
+      return;
+    }
+    if (!paymentReservation) return;
+    if (paymentAmount <= 0) {
+      toast.error('Monto inválido');
+      return;
+    }
+    if (!paymentReference.trim()) {
+      toast.error('Referencia requerida para evidenciar el pago');
+      return;
+    }
+    try {
+      setPaymentProcessing(true);
+      // Realizar checkout atómico con el método seleccionado (libera y registra pago)
+      await api.security.checkout(space.id, {
+        amount: paymentAmount,
+        method: paymentMethod,
+        reference: paymentReference,
+        notes: `Pago desde modal del espacio ${space.spaceNumber} (método ${paymentMethod})`,
+      });
+      toast.success('Checkout completado');
+      // Registrar LPR record de salida como evidencia
+      try {
+        const plate = details?.currentReservation?.vehicle?.plate || details?.occupiedVehicleInfo?.vehicle.plate || 'SIN-PLACA';
+        const color = details?.currentReservation?.vehicle?.color || details?.occupiedVehicleInfo?.vehicle.color || 'Desconocido';
+        const reservationId = paymentReservation?.id;
+        const vehicleId = details?.currentReservation?.vehicle?.id as any;
+        const userId = details?.currentReservation?.user?.id as any;
+        await api.lpr.createRecord({
+          plateNumber: plate,
+          vehicleColor: color,
+          confidence: 1.0,
+          status: 'processed',
+          type: 'exit',
+          notes: `Salida registrada con referencia ${paymentReference}`,
+          reservationId,
+          vehicleId,
+          userId,
+        });
+      } catch (e) {
+        console.warn('No se pudo registrar LPR de salida desde SpaceDetailModal', e);
+      }
+      setShowPaymentModal(false);
+      setPaymentReservation(null);
+      // Notificar y refrescar
+      window.dispatchEvent(new CustomEvent('spaceStatusChanged', { detail: { spaceId: space.id, newStatus: 'available' } }));
+      await fetchSpaceDetails();
+      onClose();
+    } catch (e: any) {
+      console.error('Create payment error', e);
+      toast.error(e?.response?.data?.message || 'Error al registrar pago');
+    } finally {
+      setPaymentProcessing(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <>
+      {!paymentOnly && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
@@ -206,7 +366,7 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
                 Espacio {space.spaceNumber}
               </h2>
               <p className="text-sm text-gray-600">{space.zone}</p>
-            </div>
+                </div>
           </div>
           <button
             onClick={onClose}
@@ -265,6 +425,21 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
                         <span className="font-medium text-blue-900">Reserva Activa</span>
                       </div>
                       <div className="flex space-x-2">
+                        {space.status === 'occupied' && details.currentReservation.status === 'occupied' && (
+                          <button
+                            onClick={() => {
+                              if (!canPay) {
+                                toast.error('Acción reservada para cajeros y administradores');
+                                return;
+                              }
+                              setShowMethodModal(true);
+                            }}
+                            className="flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                          >
+                            <Unlock className="h-4 w-4" />
+                            <span>Liberar Espacio</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => setShowLiberateModal(true)}
                           className="flex items-center space-x-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
@@ -565,8 +740,10 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
           >
             Cerrar
           </button>
+          </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Liberation Confirmation Modal */}
       {showLiberateModal && (
@@ -659,7 +836,126 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
           </div>
         </div>
       )}
-    </div>
+
+      {/* Method Selection Modal (flujo rápido) */}
+      {showMethodModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[65] p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Selecciona método de pago</h3>
+            <p className="text-sm text-gray-600 mb-4">El vehículo se está retirando. Selecciona el método con el que pagará.</p>
+            <div className="flex items-center space-x-3 mb-4">
+              <button type="button" onClick={() => setSelectedMethod('cash')} className={`px-3 py-2 rounded-lg border ${selectedMethod==='cash' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'}`}>
+                <Banknote className="h-4 w-4 inline mr-1" /> Efectivo
+              </button>
+              <button type="button" onClick={() => setSelectedMethod('qr')} className={`px-3 py-2 rounded-lg border ${selectedMethod==='qr' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'}`}>
+                <QrCode className="h-4 w-4 inline mr-1" /> QR
+              </button>
+              <button type="button" onClick={() => setSelectedMethod('card')} className={`px-3 py-2 rounded-lg border ${selectedMethod==='card' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'}`}>
+                <CreditCard className="h-4 w-4 inline mr-1" /> Tarjeta
+              </button>
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button onClick={() => setShowMethodModal(false)} className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors" disabled={paymentProcessing}>Cancelar</button>
+              <button onClick={handleConfirmMethodAndLiberate} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors" disabled={paymentProcessing}>
+                {paymentProcessing ? 'Procesando...' : 'Confirmar y Liberar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {showPaymentModal && paymentReservation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
+          <div className="bg-white rounded-lg max-w-lg w-full p-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Registrar Pago</h3>
+              <p className="text-sm text-gray-600">Reserva #{paymentReservation.id} • Inicio {formatDate(paymentReservation.startTime)}</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Monto a cobrar</label>
+                <input
+                  type="number"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  min={0}
+                  step={0.01}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Método de pago</label>
+                <div className="flex items-center space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('cash')}
+                    className={`px-3 py-2 rounded-lg border ${paymentMethod==='cash' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                  >
+                    <Banknote className="h-4 w-4 inline mr-1" /> Efectivo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('qr')}
+                    className={`px-3 py-2 rounded-lg border ${paymentMethod==='qr' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                  >
+                    <QrCode className="h-4 w-4 inline mr-1" /> QR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('card')}
+                    className={`px-3 py-2 rounded-lg border ${paymentMethod==='card' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                  >
+                    <CreditCard className="h-4 w-4 inline mr-1" /> Tarjeta
+                  </button>
+                </div>
+              </div>
+
+              {paymentMethod === 'qr' && (
+                <div className="text-center">
+                  <img
+                    src={(import.meta as any).env?.VITE_QR_PAYMENT_URL || 'https://res.cloudinary.com/dcybfl5ae/image/upload/v1760327765/rueda_negocios/comprobantes/BNB_Simple_2025_10_12-19_07_45_gvxwmo.png'}
+                    alt="QR de pago"
+                    className="mx-auto h-48 w-48 object-contain border rounded"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">Escanea el QR para pagar. Completa la referencia con el código de transacción.</p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Referencia (opcional)</label>
+                <input
+                  type="text"
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  placeholder="ID de transacción, últimos 4 de tarjeta, etc."
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => { setShowPaymentModal(false); setPaymentReservation(null); }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                disabled={paymentProcessing}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreatePayment}
+                disabled={paymentProcessing || paymentAmount <= 0}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {paymentProcessing ? 'Registrando...' : 'Registrar Pago'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

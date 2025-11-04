@@ -19,6 +19,7 @@ const Login: React.FC = () => {
   const [recoverEmail, setRecoverEmail] = useState('');
   const [recoverStep, setRecoverStep] = useState<1 | 2>(1);
   const [recoverCode, setRecoverCode] = useState('');
+  const [resetDebug, setResetDebug] = useState<any>(null);
   const [newPass, setNewPass] = useState('');
   const [newPass2, setNewPass2] = useState('');
 
@@ -45,7 +46,14 @@ const Login: React.FC = () => {
     }
     try {
       setForgotSubmitting(true);
-      await api.auth.forgotPassword(recoverEmail);
+      const res = await api.auth.forgotPassword(recoverEmail);
+      const dbg = (res as any)?.data?.debug;
+      if (dbg) {
+        console.log('[ForgotPassword][DEV] Código:', dbg.code, 'TXT:', dbg.infoFilePath);
+        setResetDebug(dbg);
+      } else {
+        setResetDebug(null);
+      }
       toast.success('Si el correo existe, se envió un código (vigente 15 minutos)');
       setRecoverStep(2);
     } catch (err: any) {
@@ -236,6 +244,23 @@ const Login: React.FC = () => {
               </form>
             ) : (
               <form onSubmit={handleResetPassword} className="space-y-4">
+                {resetDebug && (
+                  <div className="p-3 rounded border border-yellow-300 bg-yellow-50 text-sm text-yellow-800">
+                    <div className="mb-2">Modo dev: se generó un TXT local con el código.</div>
+                    <div className="mb-2">Código: <span className="font-mono tracking-widest">{resetDebug.code}</span></div>
+                    <button
+                      type="button"
+                      className="px-3 py-1 rounded bg-blue-600 text-white"
+                      onClick={() => {
+                        const base = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
+                        const url = `${base}/auth/forgot-password/latest-export?email=${encodeURIComponent(recoverEmail)}`;
+                        window.open(url, '_blank');
+                      }}
+                    >
+                      Descargar TXT
+                    </button>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Código de 6 dígitos</label>
                   <input

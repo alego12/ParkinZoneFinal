@@ -1,0 +1,6 @@
+ParkingZone - Recuperación de contraseña
+Email: admin@parkingzone.com
+Código: 632470
+Solicitado: 2025-11-04T05:10:36.013Z
+Expira: 2025-11-04T05:25:36.013Z
+IP origen: ::1

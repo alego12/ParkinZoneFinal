@@ -100,6 +100,24 @@ export const api = {
     getRecords: (params?: any) => authApi.get('/lpr/records', { params }),
   },
 
+  // Payments
+  payments: {
+    create: (data: { reservationId: number; amount: number; method: 'cash'|'qr'|'card'; reference?: string; notes?: string }) =>
+      authApi.post('/payments', data),
+    list: (params?: { from?: string; to?: string; method?: 'cash'|'qr'|'card'; recordedBy?: number; page?: number; limit?: number }) =>
+      authApi.get('/payments', { params }),
+    mine: (params?: { from?: string; to?: string; method?: 'cash'|'qr'|'card'; page?: number; limit?: number }) =>
+      authApi.get('/payments/mine', { params }),
+  },
+
+  // Closeouts
+  closeouts: {
+    preview: (data?: { from?: string; to?: string }) => authApi.post('/closeouts/preview', data || {}),
+    confirm: (data?: { from?: string; to?: string; notes?: string }) => authApi.post('/closeouts/confirm', data || {}),
+    list: (params?: { from?: string; to?: string; cashierId?: number; page?: number; limit?: number }) => authApi.get('/closeouts', { params }),
+    get: (id: number) => authApi.get(`/closeouts/${id}`),
+  },
+
   // Security
   security: {
     searchClients: (query: string) => authApi.get('/security/clients', { params: { query } }),
@@ -117,6 +135,9 @@ export const api = {
       authApi.put(`/security/parking/spaces/${id}/status`, { status, notes }),
     liberateSpace: (id: number, reason?: string, notes?: string) =>
       authApi.post(`/security/parking/spaces/${id}/liberate`, { reason, notes }),
+    prepareCheckout: (id: number) => authApi.post(`/security/parking/spaces/${id}/prepare-checkout`),
+    checkout: (id: number, data: { amount: number; method: 'cash'|'qr'|'card'; reference?: string; notes?: string }) =>
+      authApi.post(`/security/parking/spaces/${id}/checkout`, data),
     // Nuevos endpoints para LPR
     getVehicles: () => authApi.get('/security/vehicles'),
     getReservations: () => authApi.get('/security/reservations'),
