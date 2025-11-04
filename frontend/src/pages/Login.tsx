@@ -51,6 +51,9 @@ const Login: React.FC = () => {
       if (dbg) {
         console.log('[ForgotPassword][DEV] Código:', dbg.code, 'TXT:', dbg.infoFilePath);
         setResetDebug(dbg);
+        // Autocompleta el código y muéstralo en un toast para pruebas
+        setRecoverCode(String(dbg.code || ''));
+        try { toast.success(`Código de verificación: ${dbg.code}`); } catch {}
       } else {
         setResetDebug(null);
       }

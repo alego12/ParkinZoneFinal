@@ -249,14 +249,44 @@ router.post('/forgot-password', [
     // Console log for local testing visibility
     console.log(`[ForgotPassword] Email: ${user.email} | Code: ${code} | File: ${infoFilePath || 'N/A'}`);
 
-    // In non-production, return code and file path to facilitate manual testing
+    // Return debug info when enabled or in non-production
     const payload: any = { message: 'If the email exists, a code has been sent' };
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.SHOW_RESET_CODE === 'true' || process.env.NODE_ENV !== 'production') {
       payload.debug = { code, infoFilePath };
     }
     return res.json(payload);
   } catch (error) {
     console.error('Forgot password error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Dev helper: serve the latest reset TXT for a given email
+router.get('/forgot-password/latest-export', async (req: Request, res: Response) => {
+  try {
+    const email = String(req.query.email || '').trim();
+    if (!email) {
+      return res.status(400).json({ message: 'email is required' });
+    }
+    const outDir = path.join(process.cwd(), 'reset_exports');
+    if (!fs.existsSync(outDir)) {
+      return res.status(404).json({ message: 'No exports directory' });
+    }
+    const safeEmail = email.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const files = fs
+      .readdirSync(outDir)
+      .filter(f => f.startsWith(`reset_${safeEmail}_`) && f.endsWith('.txt'))
+      .map(f => ({ f, t: Number(f.split('_').pop()?.replace('.txt','')) || 0 }))
+      .sort((a, b) => b.t - a.t);
+    if (files.length === 0) {
+      return res.status(404).json({ message: 'No export found for this email' });
+    }
+    const filePath = path.join(outDir, files[0].f);
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename=${files[0].f}`);
+    return res.send(fs.readFileSync(filePath, 'utf8'));
+  } catch (error) {
+    console.error('latest-export error:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });
