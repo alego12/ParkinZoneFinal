@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import { ParkingSpace } from '../../types';
-import { MapPin, Clock } from 'lucide-react';
+import { MapPin, Clock, Car, Bike, RefreshCw, Search, X, Loader2, DollarSign, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SpaceDetailModal from '../../components/SpaceDetailModal';
 
@@ -39,17 +39,10 @@ const CashierDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white p-6 rounded-lg shadow">
-                <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                <div className="h-8 bg-gray-200 rounded w-3/4"></div>
-              </div>
-            ))}
-          </div>
+      <div className="p-6 bg-gray-50 min-h-screen">
+        <div className="flex items-center justify-center gap-3 py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <span className="text-lg font-semibold text-gray-600">Cargando panel de caja...</span>
         </div>
       </div>
     );
@@ -57,6 +50,21 @@ const CashierDashboard: React.FC = () => {
 
   const reservedSpaces = spaces.filter(s => s.status === 'reserved');
   const occupiedSpaces = spaces.filter(s => s.status === 'occupied');
+
+  const getVehicleIcon = (vehicleType: 'car' | 'motorcycle' | 'both') => {
+    if (vehicleType === 'car') {
+      return <Car className="h-4 w-4 mx-auto mb-1" />;
+    } else if (vehicleType === 'motorcycle') {
+      return <Bike className="h-4 w-4 mx-auto mb-1" />;
+    } else {
+      return (
+        <div className="relative h-5 w-5 mx-auto mb-1 flex items-center justify-center">
+          <Car className="h-4 w-4 absolute" />
+          <Bike className="h-3.5 w-3.5 absolute -bottom-0.5 -right-0.5 opacity-95" />
+        </div>
+      );
+    }
+  };
 
   const handleSpaceClick = (space: ParkingSpace) => {
     setSelectedSpace(space);
@@ -192,119 +200,193 @@ const CashierDashboard: React.FC = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-gray-50 min-h-screen">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Panel de Caja</h1>
-        <button onClick={fetchDashboardData} className="btn-primary">Actualizar</button>
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg">
+            <DollarSign className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Panel de Caja</h1>
+            <p className="text-sm text-gray-600 mt-1">Gestiona espacios reservados y ocupados</p>
+          </div>
+        </div>
+        <button 
+          onClick={fetchDashboardData} 
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl font-bold transform hover:scale-105 active:scale-95"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Actualizar
+        </button>
       </div>
 
       {/* Resumen */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Clock className="h-6 w-6 text-blue-600" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl shadow-lg border-2 border-blue-200 hover:shadow-xl transition-all transform hover:scale-105">
+          <div className="flex items-center gap-4">
+            <div className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-md">
+              <Clock className="h-7 w-7 text-white" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Reservados</p>
-              <p className="text-2xl font-semibold text-gray-900">{reservedSpaces.length}</p>
+            <div>
+              <p className="text-sm font-bold text-gray-700 uppercase tracking-wide">Reservados</p>
+              <p className="text-4xl font-bold text-blue-600 mt-1">{reservedSpaces.length}</p>
+              <p className="text-xs text-gray-600 mt-1 font-medium">espacios reservados</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <MapPin className="h-6 w-6 text-red-600" />
+        <div className="bg-gradient-to-br from-red-50 to-orange-50 p-6 rounded-xl shadow-lg border-2 border-red-200 hover:shadow-xl transition-all transform hover:scale-105">
+          <div className="flex items-center gap-4">
+            <div className="p-4 bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-md">
+              <MapPin className="h-7 w-7 text-white" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Ocupados</p>
-              <p className="text-2xl font-semibold text-gray-900">{occupiedSpaces.length}</p>
+            <div>
+              <p className="text-sm font-bold text-gray-700 uppercase tracking-wide">Ocupados</p>
+              <p className="text-4xl font-bold text-red-600 mt-1">{occupiedSpaces.length}</p>
+              <p className="text-xs text-gray-600 mt-1 font-medium">espacios ocupados</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Listas de espacios: Reservados y Ocupados */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
 
         {/* Reservados */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Clock className="h-5 w-5 text-blue-600 mr-2" />
+        <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200 overflow-hidden">
+          <div className="p-5 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <div className="p-2 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg">
+                <Clock className="h-4 w-4 text-white" />
+              </div>
               Espacios Reservados ({reservedSpaces.length})
             </h3>
           </div>
           <div className="p-6">
-            <div className="grid grid-cols-4 gap-2">
-              {reservedSpaces.map((space) => (
-                <div
-                  key={space.id}
-                  className="p-3 bg-blue-100 text-blue-800 rounded-lg text-center cursor-pointer hover:bg-blue-200 transition-colors"
-                  onClick={() => handleSpaceClick(space)}
-                  title="Hacer clic para ver detalles"
-                >
-                  <div className="font-medium">{space.spaceNumber}</div>
-                  <div className="text-xs">{space.zone}</div>
-                </div>
-              ))}
-            </div>
+            {reservedSpaces.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Clock className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm font-medium">No hay espacios reservados</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 gap-3">
+                {reservedSpaces.map((space) => (
+                  <div
+                    key={space.id}
+                    className="p-4 bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800 rounded-xl text-center cursor-pointer hover:from-blue-200 hover:to-blue-300 transition-all border-2 border-blue-300 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95"
+                    onClick={() => handleSpaceClick(space)}
+                    title="Hacer clic para ver detalles"
+                  >
+                    <div className="mb-2 flex justify-center">
+                      {getVehicleIcon(space.vehicleType)}
+                    </div>
+                    <div className="font-bold text-sm">{space.spaceNumber}</div>
+                    <div className="text-xs font-medium mt-1 opacity-80">{space.zone}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Ocupados */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <MapPin className="h-5 w-5 text-red-600 mr-2" />
+        <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200 overflow-hidden">
+          <div className="p-5 border-b-2 border-gray-200 bg-gradient-to-r from-red-50 to-orange-50">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <div className="p-2 bg-gradient-to-br from-red-600 to-red-700 rounded-lg">
+                <MapPin className="h-4 w-4 text-white" />
+              </div>
               Espacios Ocupados ({occupiedSpaces.length})
             </h3>
           </div>
           <div className="p-6">
-            <div className="grid grid-cols-4 gap-2">
-              {occupiedSpaces.map((space) => (
-                <div
-                  key={space.id}
-                  className="p-3 bg-red-100 text-red-800 rounded-lg text-center cursor-pointer hover:bg-red-200 transition-colors"
-                  onClick={() => handleSpaceClick(space)}
-                  title="Hacer clic para ver detalles"
-                >
-                  <div className="font-medium">{space.spaceNumber}</div>
-                  <div className="text-xs">{space.zone}</div>
-                </div>
-              ))}
-            </div>
+            {occupiedSpaces.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <MapPin className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm font-medium">No hay espacios ocupados</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 gap-3">
+                {occupiedSpaces.map((space) => (
+                  <div
+                    key={space.id}
+                    className="p-4 bg-gradient-to-br from-red-100 to-red-200 text-red-800 rounded-xl text-center cursor-pointer hover:from-red-200 hover:to-red-300 transition-all border-2 border-red-300 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95"
+                    onClick={() => handleSpaceClick(space)}
+                    title="Hacer clic para ver detalles"
+                  >
+                    <div className="mb-2 flex justify-center">
+                      {getVehicleIcon(space.vehicleType)}
+                    </div>
+                    <div className="font-bold text-sm">{space.spaceNumber}</div>
+                    <div className="text-xs font-medium mt-1 opacity-80">{space.zone}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Entrada manual LPR (simplificada) */}
-      <div className="mt-8 bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Entrada Manual (Placa)</h3>
+      <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200">
+        <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-gray-50 to-blue-50">
+          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <div className="p-2 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg">
+              <Search className="h-4 w-4 text-white" />
+            </div>
+            Entrada Manual por Placa
+          </h3>
+          <p className="text-sm text-gray-600 mt-1 font-medium">Ingresa la placa del vehículo para procesar entrada o salida</p>
         </div>
-        <div className="p-6 grid grid-cols-1 md:grid-cols-6 gap-3">
-          <input
-            type="text"
-            placeholder="Ingresa placa (ej. 1852PHD)"
-            value={manualPlate}
-            onChange={e=>setManualPlate(e.target.value.toUpperCase())}
-            className="input md:col-span-4"
-          />
-          <button
-            onClick={() => manualPlate.trim() && searchVehicle(manualPlate.trim())}
-            disabled={processing || manualPlate.trim().length < 5}
-            className="btn-primary disabled:opacity-50"
-          >
-            {processing ? 'Procesando...' : 'Procesar'}
-          </button>
-          <button
-            onClick={() => setManualPlate('')}
-            className="btn-secondary"
-          >
-            Limpiar
-          </button>
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div className="md:col-span-4">
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                Número de Placa
+              </label>
+              <input
+                type="text"
+                placeholder="Ejemplo: ABC123 o 1852PHD"
+                value={manualPlate}
+                onChange={e=>setManualPlate(e.target.value.toUpperCase())}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && manualPlate.trim().length >= 5 && !processing) {
+                    searchVehicle(manualPlate.trim());
+                  }
+                }}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-medium placeholder:text-gray-400"
+              />
+              <p className="text-xs text-gray-500 mt-2 font-medium">Mínimo 5 caracteres</p>
+            </div>
+            <div className="flex flex-col justify-end gap-2">
+              <button
+                onClick={() => manualPlate.trim() && searchVehicle(manualPlate.trim())}
+                disabled={processing || manualPlate.trim().length < 5}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 disabled:transform-none"
+              >
+                {processing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Procesando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-4 w-4" />
+                    <span>Procesar</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="flex flex-col justify-end">
+              <button
+                onClick={() => setManualPlate('')}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl hover:from-gray-600 hover:to-gray-700 transition-all shadow-lg hover:shadow-xl font-bold transform hover:scale-105 active:scale-95"
+              >
+                <X className="h-4 w-4" />
+                <span>Limpiar</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

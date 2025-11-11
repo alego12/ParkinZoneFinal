@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import { ParkingSpace, LPRRecord } from '../../types';
-import { MapPin, AlertTriangle, Car, Clock, Eye, Search, Settings } from 'lucide-react';
+import { MapPin, AlertTriangle, Car, Clock, Eye, Search, Settings, Bike, RefreshCw, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SpaceDetailModal from '../../components/SpaceDetailModal';
 
@@ -82,6 +82,27 @@ const SecurityDashboard: React.FC = () => {
     }
   };
 
+  const getVehicleIcon = (vehicleType: 'car' | 'motorcycle' | 'both', isHorizontal: boolean = false) => {
+    const baseClasses = isHorizontal ? "h-6 w-6" : "h-4 w-4 mx-auto mb-1";
+    const containerClasses = isHorizontal 
+      ? "relative h-6 w-6 flex items-center justify-center flex-shrink-0" 
+      : "relative h-5 w-5 mx-auto mb-1 flex items-center justify-center";
+    
+    if (vehicleType === 'car') {
+      return <Car className={baseClasses} />;
+    } else if (vehicleType === 'motorcycle') {
+      return <Bike className={baseClasses} />;
+    } else {
+      // 'both' - mostrar ambos iconos superpuestos
+      return (
+        <div className={containerClasses}>
+          <Car className={isHorizontal ? "h-6 w-6 absolute" : "h-4 w-4 absolute"} />
+          <Bike className={isHorizontal ? "h-5 w-5 absolute -bottom-0.5 -right-0.5 opacity-95" : "h-3.5 w-3.5 absolute -bottom-0.5 -right-0.5 opacity-95"} />
+        </div>
+      );
+    }
+  };
+
   const occupiedSpaces = spaces.filter(space => space.status === 'occupied');
   const maintenanceSpaces = spaces.filter(space => space.status === 'maintenance');
 
@@ -120,22 +141,32 @@ const SecurityDashboard: React.FC = () => {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Panel de Seguridad</h1>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl shadow-lg">
+            <Shield className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Panel de Seguridad</h1>
+            <p className="text-sm text-gray-600 mt-1">Monitoreo y control de espacios de parqueo</p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-3">
           <button
             onClick={() => window.location.href = '/security/lpr'}
-            className="btn-secondary flex items-center space-x-2"
+            className="px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-xl hover:from-gray-700 hover:to-gray-800 transition-all shadow-md hover:shadow-lg flex items-center gap-2 font-semibold"
           >
             <Settings className="h-4 w-4" />
             <span>Gestión LPR</span>
           </button>
-          <div className="text-sm text-gray-600">
-            Última actualización: {new Date().toLocaleTimeString()}
+          <div className="text-sm text-gray-600 bg-gray-100 px-3 py-2 rounded-lg font-medium">
+            <Clock className="h-3.5 w-3.5 inline mr-1" />
+            {new Date().toLocaleTimeString()}
           </div>
           <button
             onClick={fetchSpaces}
-            className="btn-primary"
+            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2 font-semibold"
           >
+            <RefreshCw className="h-4 w-4" />
             Actualizar
           </button>
         </div>
@@ -143,58 +174,66 @@ const SecurityDashboard: React.FC = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Car className="h-6 w-6 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Disponibles</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {spaces.filter(s => s.status === 'available').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <MapPin className="h-6 w-6 text-red-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Ocupados</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {occupiedSpaces.length}
-              </p>
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-xl shadow-lg border-2 border-green-200 hover:shadow-xl transition-all transform hover:scale-105">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-md">
+                <Car className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-bold text-gray-600 uppercase tracking-wide">Disponibles</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">
+                  {spaces.filter(s => s.status === 'available').length}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <AlertTriangle className="h-6 w-6 text-yellow-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Mantenimiento</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {maintenanceSpaces.length}
-              </p>
+        <div className="bg-gradient-to-br from-red-50 to-rose-50 p-6 rounded-xl shadow-lg border-2 border-red-200 hover:shadow-xl transition-all transform hover:scale-105">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-3 bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-md">
+                <MapPin className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-bold text-gray-600 uppercase tracking-wide">Ocupados</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">
+                  {occupiedSpaces.length}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Clock className="h-6 w-6 text-blue-600" />
+        <div className="bg-gradient-to-br from-yellow-50 to-amber-50 p-6 rounded-xl shadow-lg border-2 border-yellow-200 hover:shadow-xl transition-all transform hover:scale-105">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-3 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-md">
+                <AlertTriangle className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-bold text-gray-600 uppercase tracking-wide">Mantenimiento</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">
+                  {maintenanceSpaces.length}
+                </p>
+              </div>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Reservados</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {spaces.filter(s => s.status === 'reserved').length}
-              </p>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl shadow-lg border-2 border-blue-200 hover:shadow-xl transition-all transform hover:scale-105">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-md">
+                <Clock className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-bold text-gray-600 uppercase tracking-wide">Reservados</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">
+                  {spaces.filter(s => s.status === 'reserved').length}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -203,26 +242,32 @@ const SecurityDashboard: React.FC = () => {
       {/* Parking Spaces Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Available Spaces */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Car className="h-5 w-5 text-green-600 mr-2" />
-              Espacios Disponibles ({spaces.filter(s => s.status === 'available').length})
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="p-5 bg-gradient-to-r from-green-50 to-emerald-50 border-b-2 border-green-200">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center">
+              <div className="p-2 bg-green-600 rounded-lg mr-3">
+                <Car className="h-5 w-5 text-white" />
+              </div>
+              Espacios Disponibles 
+              <span className="ml-2 px-3 py-1 bg-green-600 text-white rounded-full text-sm font-bold">
+                {spaces.filter(s => s.status === 'available').length}
+              </span>
             </h3>
           </div>
-          <div className="p-6">
-            <div className="grid grid-cols-4 gap-2">
+          <div className="p-5">
+            <div className="grid grid-cols-4 gap-3">
               {spaces
                 .filter(space => space.status === 'available')
                 .map((space) => (
                   <div
                     key={space.id}
-                    className="p-3 bg-green-100 text-green-800 rounded-lg text-center cursor-pointer hover:bg-green-200 transition-colors"
+                    className="p-3 bg-gradient-to-br from-green-100 to-green-200 text-green-900 rounded-xl text-center cursor-pointer hover:from-green-200 hover:to-green-300 transition-all shadow-md hover:shadow-lg transform hover:scale-110 active:scale-95 border-2 border-green-300"
                     onClick={() => handleSpaceClick(space)}
                     title="Hacer clic para ver detalles"
                   >
-                    <div className="font-medium">{space.spaceNumber}</div>
-                    <div className="text-xs">{space.zone}</div>
+                    {getVehicleIcon(space.vehicleType)}
+                    <div className="font-bold text-sm mt-1">{space.spaceNumber}</div>
+                    <div className="text-xs font-medium opacity-75">{space.zone}</div>
                   </div>
                 ))}
             </div>
@@ -230,24 +275,30 @@ const SecurityDashboard: React.FC = () => {
         </div>
 
         {/* Occupied Spaces */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <MapPin className="h-5 w-5 text-red-600 mr-2" />
-              Espacios Ocupados ({occupiedSpaces.length})
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="p-5 bg-gradient-to-r from-red-50 to-rose-50 border-b-2 border-red-200">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center">
+              <div className="p-2 bg-red-600 rounded-lg mr-3">
+                <MapPin className="h-5 w-5 text-white" />
+              </div>
+              Espacios Ocupados
+              <span className="ml-2 px-3 py-1 bg-red-600 text-white rounded-full text-sm font-bold">
+                {occupiedSpaces.length}
+              </span>
             </h3>
           </div>
-          <div className="p-6">
-            <div className="grid grid-cols-4 gap-2">
+          <div className="p-5">
+            <div className="grid grid-cols-4 gap-3">
               {occupiedSpaces.map((space) => (
                 <div
                   key={space.id}
-                  className="p-3 bg-red-100 text-red-800 rounded-lg text-center cursor-pointer hover:bg-red-200 transition-colors"
+                  className="p-3 bg-gradient-to-br from-red-100 to-red-200 text-red-900 rounded-xl text-center cursor-pointer hover:from-red-200 hover:to-red-300 transition-all shadow-md hover:shadow-lg transform hover:scale-110 active:scale-95 border-2 border-red-300"
                   onClick={() => handleSpaceClick(space)}
                   title="Hacer clic para ver detalles"
                 >
-                  <div className="font-medium">{space.spaceNumber}</div>
-                  <div className="text-xs">{space.zone}</div>
+                  {getVehicleIcon(space.vehicleType)}
+                  <div className="font-bold text-sm mt-1">{space.spaceNumber}</div>
+                  <div className="text-xs font-medium opacity-75">{space.zone}</div>
                 </div>
               ))}
             </div>
@@ -255,24 +306,30 @@ const SecurityDashboard: React.FC = () => {
         </div>
 
         {/* Maintenance Spaces */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
-              En Mantenimiento ({maintenanceSpaces.length})
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="p-5 bg-gradient-to-r from-yellow-50 to-amber-50 border-b-2 border-yellow-200">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center">
+              <div className="p-2 bg-yellow-600 rounded-lg mr-3">
+                <AlertTriangle className="h-5 w-5 text-white" />
+              </div>
+              En Mantenimiento
+              <span className="ml-2 px-3 py-1 bg-yellow-600 text-white rounded-full text-sm font-bold">
+                {maintenanceSpaces.length}
+              </span>
             </h3>
           </div>
-          <div className="p-6">
-            <div className="grid grid-cols-4 gap-2">
+          <div className="p-5">
+            <div className="grid grid-cols-4 gap-3">
               {maintenanceSpaces.map((space) => (
                 <div
                   key={space.id}
-                  className="p-3 bg-yellow-100 text-yellow-800 rounded-lg text-center cursor-pointer hover:bg-yellow-200 transition-colors"
+                  className="p-3 bg-gradient-to-br from-yellow-100 to-yellow-200 text-yellow-900 rounded-xl text-center cursor-pointer hover:from-yellow-200 hover:to-yellow-300 transition-all shadow-md hover:shadow-lg transform hover:scale-110 active:scale-95 border-2 border-yellow-300"
                   onClick={() => handleSpaceClick(space)}
                   title="Hacer clic para ver detalles"
                 >
-                  <div className="font-medium">{space.spaceNumber}</div>
-                  <div className="text-xs">{space.zone}</div>
+                  {getVehicleIcon(space.vehicleType)}
+                  <div className="font-bold text-sm mt-1">{space.spaceNumber}</div>
+                  <div className="text-xs font-medium opacity-75">{space.zone}</div>
                 </div>
               ))}
             </div>
@@ -282,60 +339,66 @@ const SecurityDashboard: React.FC = () => {
 
       {/* Recent LPR Records */}
       {recentLPRRecords.length > 0 && (
-        <div className="mt-8 bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Eye className="h-5 w-5 text-blue-600 mr-2" />
-              Registros LPR Recientes ({recentLPRRecords.length})
+        <div className="mt-8 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="p-5 bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-blue-200">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center">
+              <div className="p-2 bg-blue-600 rounded-lg mr-3">
+                <Eye className="h-5 w-5 text-white" />
+              </div>
+              Registros LPR Recientes
+              <span className="ml-2 px-3 py-1 bg-blue-600 text-white rounded-full text-sm font-bold">
+                {recentLPRRecords.length}
+              </span>
             </h3>
           </div>
           <div className="p-6">
             <div className="space-y-3">
               {recentLPRRecords.map((record) => (
-                <div key={record.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                <div key={record.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-blue-50 border-2 border-gray-200 rounded-xl hover:border-blue-300 hover:shadow-md transition-all">
                   <div className="flex items-center space-x-4">
                     <button
                       onClick={() => window.open(api.lpr.getImage(record.imagePath.split('/').pop() || ''), '_blank')}
-                      className="flex items-center justify-center w-10 h-10 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl hover:from-blue-200 hover:to-blue-300 transition-all shadow-sm hover:shadow-md transform hover:scale-110 active:scale-95"
                     >
-                      <Eye className="h-4 w-4 text-gray-600" />
+                      <Eye className="h-5 w-5 text-blue-600" />
                     </button>
                     <div>
-                      <p className="font-medium text-gray-900">{record.plateNumber}</p>
-                      <p className="text-sm text-gray-600">
+                      <p className="font-bold text-gray-900 text-lg font-mono">{record.plateNumber}</p>
+                      <p className="text-sm text-gray-600 font-medium mt-1">
                         {record.vehicleColor} • {(record.confidence * 100).toFixed(1)}% confianza
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
                         {new Date(record.detectedAt).toLocaleString()}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                  <div className="flex items-center space-x-3">
+                    <span className="inline-flex items-center px-3 py-1.5 text-xs font-bold rounded-full bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 border border-yellow-300 shadow-sm">
                       Pendiente
                     </span>
                     <button
                       onClick={() => {
-                        // Navigate to LPR records page or open modal
                         window.location.href = '/admin/lpr-records';
                       }}
-                      className="text-blue-600 hover:text-blue-900 text-sm font-medium"
+                      className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2 font-semibold text-sm"
                     >
-                      <Search className="h-4 w-4 inline mr-1" />
+                      <Search className="h-4 w-4" />
                       Procesar
                     </button>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-4 text-center">
+            <div className="mt-6 text-center">
               <button
                 onClick={() => {
                   window.location.href = '/admin/lpr-records';
                 }}
-                className="text-blue-600 hover:text-blue-900 font-medium"
+                className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg font-semibold flex items-center gap-2 mx-auto"
               >
-                Ver todos los registros LPR →
+                Ver todos los registros LPR
+                <Eye className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -343,25 +406,37 @@ const SecurityDashboard: React.FC = () => {
       )}
 
       {/* Detailed View */}
-      <div className="mt-8 bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Vista Detallada</h3>
+      <div className="mt-8 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="p-5 bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+          <h3 className="text-lg font-bold text-gray-900 flex items-center">
+            <div className="p-2 bg-gray-600 rounded-lg mr-3">
+              <MapPin className="h-5 w-5 text-white" />
+            </div>
+            Vista Detallada de Todos los Espacios
+          </h3>
         </div>
         <div className="p-6">
-          <div className="grid grid-cols-8 gap-4">
+          <div className="grid grid-cols-8 gap-3">
             {spaces.map((space) => {
               const status = getSpaceStatus(space.status);
-              const Icon = status.icon;
+              const colorClasses = {
+                'available': 'bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700',
+                'occupied': 'bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700',
+                'maintenance': 'bg-gradient-to-br from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700',
+                'reserved': 'bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700',
+              };
               return (
                 <div
                   key={space.id}
-                  className={`p-3 rounded-lg text-center cursor-pointer transition-all duration-200 hover:scale-105 ${status.color} text-white`}
+                  className={`p-3 rounded-xl cursor-pointer transition-all duration-200 hover:scale-110 active:scale-95 ${colorClasses[space.status as keyof typeof colorClasses] || 'bg-gradient-to-br from-gray-500 to-gray-600'} text-white flex items-center gap-2 shadow-md hover:shadow-xl border-2 border-white/20`}
                   title={`${space.spaceNumber} - ${status.text} - Hacer clic para ver detalles`}
                   onClick={() => handleSpaceClick(space)}
                 >
-                  <Icon className="h-4 w-4 mx-auto mb-1" />
-                  <div className="text-xs font-medium">{space.spaceNumber}</div>
-                  <div className="text-xs opacity-75">{space.zone}</div>
+                  {getVehicleIcon(space.vehicleType, true)}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold truncate drop-shadow-md">{space.spaceNumber}</div>
+                    <div className="text-xs opacity-90 truncate drop-shadow-sm">{space.zone}</div>
+                  </div>
                 </div>
               );
             })}

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import { LPRRecord, User, ParkingSpace } from '../../types';
-import { Search, UserPlus, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Search, UserPlus, CheckCircle, XCircle, Clock, AlertTriangle, Camera, Shield, RefreshCw, Loader2, Eye, Car, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 // Removed CameraComponent to focus on manual flow
 import ClientInfoModal from '../../components/ClientInfoModal';
 import SpaceDetailModal from '../../components/SpaceDetailModal';
+import LPRCameraModal from '../../components/LPRCameraModal';
 
 interface MatchResult {
   record: LPRRecord;
@@ -32,6 +33,8 @@ const LPRManagement: React.FC = () => {
   // Reuse SpaceDetailModal for exit flow
   const [selectedSpace, setSelectedSpace] = useState<ParkingSpace | null>(null);
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false);
+  // Modal de cámara para reconocimiento de placas
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
 
   useEffect(() => {
     fetchRecords();
@@ -468,14 +471,74 @@ const LPRManagement: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 border border-yellow-300';
       case 'matched':
-        return 'bg-green-100 text-green-800';
+        return 'bg-gradient-to-r from-green-100 to-green-200 text-green-800 border border-green-300';
       case 'no_match':
-        return 'bg-red-100 text-red-800';
+        return 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 border border-red-300';
+      case 'processed':
+        return 'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border border-blue-300';
+      case 'vehicle_created':
+        return 'bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border border-purple-300';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 border border-gray-300';
     }
+  };
+
+  // Función para traducir estados al español
+  const translateStatus = (status: string): string => {
+    const statusMap: { [key: string]: string } = {
+      'pending': 'Pendiente',
+      'matched': 'Coincidencia',
+      'no_match': 'Sin Coincidencia',
+      'processed': 'Procesado',
+      'vehicle_created': 'Vehículo Creado',
+    };
+    return statusMap[status] || status;
+  };
+
+  // Función para traducir tipos al español
+  const translateType = (type: string): string => {
+    const typeMap: { [key: string]: string } = {
+      'entry': 'Entrada',
+      'exit': 'Salida',
+    };
+    return typeMap[type] || 'Entrada';
+  };
+
+  // Función para obtener color CSS desde nombre de color en español
+  const getColorFromName = (colorName: string): string => {
+    const colorMap: { [key: string]: string } = {
+      'blanco': '#FFFFFF',
+      'blanca': '#FFFFFF',
+      'white': '#FFFFFF',
+      'negro': '#000000',
+      'negra': '#000000',
+      'black': '#000000',
+      'gris': '#808080',
+      'gray': '#808080',
+      'gris': '#808080',
+      'rojo': '#FF0000',
+      'roja': '#FF0000',
+      'red': '#FF0000',
+      'azul': '#0000FF',
+      'blue': '#0000FF',
+      'verde': '#008000',
+      'green': '#008000',
+      'amarillo': '#FFFF00',
+      'yellow': '#FFFF00',
+      'plateado': '#C0C0C0',
+      'silver': '#C0C0C0',
+      'plateada': '#C0C0C0',
+      'naranja': '#FFA500',
+      'orange': '#FFA500',
+      'marrón': '#8B4513',
+      'brown': '#8B4513',
+      'marrón': '#8B4513',
+    };
+    
+    const normalizedColor = colorName.toLowerCase().trim();
+    return colorMap[normalizedColor] || '#808080'; // Gris por defecto
   };
 
   if (loading) {
@@ -505,25 +568,30 @@ const LPRManagement: React.FC = () => {
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       {/* Header mejorado */}
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-6">
         <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Sistema LPR Automático</h1>
-            <p className="text-gray-600">Reconocimiento de placas y gestión automática de vehículos</p>
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl shadow-lg">
+              <Shield className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-1">Sistema LPR Automático</h1>
+              <p className="text-gray-600">Reconocimiento de placas y gestión automática de vehículos</p>
+            </div>
           </div>
           <div className="flex space-x-3">
             <button
               onClick={fetchRecords}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2"
+              className="px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-xl hover:from-gray-700 hover:to-gray-800 transition-all shadow-md hover:shadow-lg flex items-center gap-2 font-semibold"
             >
-              <Search className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4" />
               <span>Actualizar</span>
             </button>
             <button
               onClick={fetchAvailableSpaces}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2 font-semibold"
             >
-              <CheckCircle className="h-4 w-4" />
+              <MapPin className="h-4 w-4" />
               <span>Espacios</span>
             </button>
           </div>
@@ -531,21 +599,28 @@ const LPRManagement: React.FC = () => {
       </div>
 
       {/* Entrada Manual por Placa */}
-      <div className="mb-8 bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Entrada Manual</h3>
+      <div className="mb-8 bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg">
+            <Car className="h-5 w-5 text-white" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900">Entrada Manual</h3>
+        </div>
         <div className="flex flex-col md:flex-row md:items-center gap-3">
-          <input
-            type="text"
-            placeholder="Ingresa placa (ej. 1852PHD)"
-            className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            value={manualPlate}
-            onChange={(e) => setManualPlate(e.target.value.toUpperCase())}
-            onKeyDown={async (e) => {
-              if (e.key === 'Enter' && manualPlate.trim()) {
-                await searchVehicle(manualPlate.trim());
-              }
-            }}
-          />
+          <div className="flex-1 md:flex-none">
+            <input
+              type="text"
+              placeholder="Ingresa placa (ej. 1852PHD)"
+              className="w-full md:w-80 px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder:text-gray-400 font-mono text-lg"
+              value={manualPlate}
+              onChange={(e) => setManualPlate(e.target.value.toUpperCase())}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter' && manualPlate.trim()) {
+                  await searchVehicle(manualPlate.trim());
+                }
+              }}
+            />
+          </div>
           <button
             onClick={async () => {
               if (!manualPlate.trim()) {
@@ -554,10 +629,29 @@ const LPRManagement: React.FC = () => {
               }
               await searchVehicle(manualPlate.trim());
             }}
-            className="btn-primary"
+            className="px-6 py-3 bg-gradient-to-r from-green-600 via-green-700 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:via-green-800 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 disabled:transform-none"
             disabled={processing}
           >
-            Procesar
+            {processing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Procesando...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-4 w-4" />
+                Procesar
+              </>
+            )}
+          </button>
+          <button
+            onClick={() => setIsCameraModalOpen(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-600 text-white rounded-xl hover:from-purple-700 hover:via-purple-800 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl font-semibold disabled:opacity-50 transform hover:scale-105 active:scale-95 disabled:transform-none"
+            disabled={processing}
+            title="Reconocer placa desde cámara"
+          >
+            <Camera className="h-5 w-5" />
+            <span className="hidden md:inline">Cámara</span>
           </button>
         </div>
       </div>
@@ -568,18 +662,20 @@ const LPRManagement: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Records List */}
-        <div className="bg-white rounded-lg shadow-sm">
-          <div className="p-6 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Clock className="h-5 w-5 text-orange-600" />
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="p-5 bg-gradient-to-r from-yellow-50 to-orange-50 border-b-2 border-yellow-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-lg shadow-md">
+                  <Clock className="h-5 w-5 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Registros Pendientes
+                </h3>
+                <span className="px-3 py-1 bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 border border-yellow-300 rounded-full text-sm font-bold shadow-sm">
+                  {records.length}
+                </span>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                Registros Pendientes
-              </h3>
-              <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-medium">
-                {records.length}
-              </span>
             </div>
           </div>
           <div className="p-6">
@@ -587,30 +683,33 @@ const LPRManagement: React.FC = () => {
               {records.map((record) => (
                 <div
                   key={record.id}
-                  className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                  className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
                     selectedRecord?.id === record.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-lg scale-[1.02]'
+                      : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50 hover:shadow-md'
                   }`}
                   onClick={() => handleRecordSelect(record)}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      {/* Botón de ver imagen removido para flujo manual */}
-                      <div>
-                        <p className="font-medium text-gray-900">{record.plateNumber}</p>
-                        <p className="text-sm text-gray-600">
-                          {record.vehicleColor} • {(record.confidence * 100).toFixed(1)}%
+                    <div className="flex items-center space-x-3 flex-1">
+                      <div className="p-2 bg-gray-100 rounded-lg">
+                        <Car className="h-5 w-5 text-gray-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-gray-900 text-lg font-mono">{record.plateNumber}</p>
+                        <p className="text-sm text-gray-600 font-medium mt-1">
+                          {record.vehicleColor} • {(record.confidence * 100).toFixed(1)}% confianza
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
                           {new Date(record.detectedAt).toLocaleString()}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       {getStatusIcon(record.status)}
-                      <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(record.status)}`}>
-                        {record.status === 'pending' ? 'Pendiente' : record.status}
+                      <span className={`inline-flex items-center px-3 py-1.5 text-xs font-bold rounded-full shadow-sm ${getStatusColor(record.status)}`}>
+                        {translateStatus(record.status)}
                       </span>
                     </div>
                   </div>
@@ -621,11 +720,13 @@ const LPRManagement: React.FC = () => {
         </div>
 
         {/* Record Details and Actions */}
-        <div className="bg-white rounded-lg shadow-sm">
-          <div className="p-6 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-100 rounded-lg" />
-              <h3 className="text-lg font-semibold text-gray-900">Detalles y Acciones</h3>
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="p-5 bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-blue-200">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg shadow-md">
+                <Eye className="h-5 w-5 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Detalles y Acciones</h3>
             </div>
           </div>
           <div className="p-6">
@@ -633,24 +734,27 @@ const LPRManagement: React.FC = () => {
               <div className="space-y-6">
                 {/* Record Info */}
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Información del Registro</h4>
-                  <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <Car className="h-4 w-4 text-blue-600" />
+                    Información del Registro
+                  </h4>
+                  <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-5 rounded-xl border-2 border-gray-200">
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-600">Placa</p>
-                        <p className="font-medium">{selectedRecord.plateNumber}</p>
+                      <div className="bg-white/60 p-3 rounded-lg">
+                        <p className="text-sm font-bold text-gray-600 mb-1">Placa</p>
+                        <p className="font-bold text-gray-900 text-lg font-mono">{selectedRecord.plateNumber}</p>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Color</p>
-                        <p className="font-medium">{selectedRecord.vehicleColor}</p>
+                      <div className="bg-white/60 p-3 rounded-lg">
+                        <p className="text-sm font-bold text-gray-600 mb-1">Color</p>
+                        <p className="font-bold text-gray-900 capitalize">{selectedRecord.vehicleColor}</p>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Confianza</p>
-                        <p className="font-medium">{(selectedRecord.confidence * 100).toFixed(1)}%</p>
+                      <div className="bg-white/60 p-3 rounded-lg">
+                        <p className="text-sm font-bold text-gray-600 mb-1">Confianza</p>
+                        <p className="font-bold text-gray-900">{(selectedRecord.confidence * 100).toFixed(1)}%</p>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Fecha</p>
-                        <p className="font-medium">{new Date(selectedRecord.detectedAt).toLocaleString()}</p>
+                      <div className="bg-white/60 p-3 rounded-lg">
+                        <p className="text-sm font-bold text-gray-600 mb-1">Fecha</p>
+                        <p className="font-bold text-gray-900 text-sm">{new Date(selectedRecord.detectedAt).toLocaleString()}</p>
                       </div>
                     </div>
                   </div>
@@ -659,18 +763,24 @@ const LPRManagement: React.FC = () => {
                 {/* Matches */}
                 {matchResult.hasMatch && (
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Coincidencias Encontradas</h4>
+                    <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      Coincidencias Encontradas
+                    </h4>
                     
                     {/* Vehicles */}
                     {matchResult.vehicles.length > 0 && (
                       <div className="mb-4">
-                        <p className="text-sm text-gray-600 mb-2">Vehículos registrados:</p>
+                        <p className="text-sm font-bold text-gray-700 mb-3">Vehículos registrados:</p>
                         {matchResult.vehicles.map((vehicle) => (
-                          <div key={vehicle.id} className="bg-green-50 p-3 rounded-lg mb-2">
+                          <div key={vehicle.id} className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl mb-3 border-2 border-green-200 shadow-md">
                             <div className="flex justify-between items-center">
-                              <div>
-                                <p className="font-medium">{vehicle.model} - {vehicle.plate}</p>
-                                <p className="text-sm text-gray-600">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Car className="h-5 w-5 text-green-600" />
+                                  <p className="font-bold text-gray-900 text-lg">{vehicle.model} - <span className="font-mono">{vehicle.plate}</span></p>
+                                </div>
+                                <p className="text-sm text-gray-700 font-medium">
                                   {vehicle.user.firstName} {vehicle.user.lastName} ({vehicle.user.email})
                                 </p>
                               </div>
@@ -680,9 +790,14 @@ const LPRManagement: React.FC = () => {
                                   reservationId: matchResult.reservations.find(r => r.vehicleId === vehicle.id)?.id
                                 })}
                                 disabled={processing}
-                                className="btn-primary btn-sm"
+                                className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-md hover:shadow-lg font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                               >
-                                Marcar como Entrada
+                                {processing ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="h-4 w-4" />
+                                )}
+                                Marcar Entrada
                               </button>
                             </div>
                           </div>
@@ -693,16 +808,20 @@ const LPRManagement: React.FC = () => {
                     {/* Active Reservations */}
                     {matchResult.reservations.length > 0 && (
                       <div className="mb-4">
-                        <p className="text-sm text-gray-600 mb-2">Reservas activas:</p>
+                        <p className="text-sm font-bold text-gray-700 mb-3">Reservas activas:</p>
                         {matchResult.reservations.map((reservation) => (
-                          <div key={reservation.id} className="bg-blue-50 p-3 rounded-lg mb-2">
+                          <div key={reservation.id} className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl mb-3 border-2 border-blue-200 shadow-md">
                             <div className="flex justify-between items-center">
-                              <div>
-                                <p className="font-medium">Espacio {reservation.parkingSpace.spaceNumber}</p>
-                                <p className="text-sm text-gray-600">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <MapPin className="h-5 w-5 text-blue-600" />
+                                  <p className="font-bold text-gray-900 text-lg">Espacio {reservation.parkingSpace.spaceNumber}</p>
+                                </div>
+                                <p className="text-sm text-gray-700 font-medium">
                                   {reservation.user.firstName} {reservation.user.lastName}
                                 </p>
-                                <p className="text-sm text-gray-600">
+                                <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
                                   {new Date(reservation.startTime).toLocaleString()}
                                 </p>
                               </div>
@@ -715,7 +834,6 @@ const LPRManagement: React.FC = () => {
                                   onClose={() => {
                                     setIsSpaceModalOpen(false);
                                     setSelectedSpace(null);
-                                    // refrescar listados tras cerrar
                                     fetchAvailableSpaces();
                                     fetchRecords();
                                     fetchAllRecords();
@@ -728,9 +846,14 @@ const LPRManagement: React.FC = () => {
                                   vehicleId: reservation.vehicleId
                                 })}
                                 disabled={processing}
-                                className="btn-primary btn-sm"
+                                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                               >
-                                Confirmar Entrada
+                                {processing ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="h-4 w-4" />
+                                )}
+                                Confirmar
                               </button>
                             </div>
                           </div>
@@ -743,17 +866,20 @@ const LPRManagement: React.FC = () => {
                 {/* No Match Actions */}
                 {!matchResult.hasMatch && (
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-2">No se encontraron coincidencias</h4>
+                    <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-red-600" />
+                      No se encontraron coincidencias
+                    </h4>
                     
                     {/* Create Vehicle */}
                     <div className="mb-4">
-                      <p className="text-sm text-gray-600 mb-2">Registrar vehículo manualmente:</p>
+                      <p className="text-sm font-bold text-gray-700 mb-3">Registrar vehículo manualmente:</p>
                       <div className="space-y-3">
                         <div>
                           <input
                             type="text"
                             placeholder="Buscar usuario por nombre, email o teléfono..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder:text-gray-400"
                             value={searchQuery}
                             onChange={(e) => {
                               setSearchQuery(e.target.value);
@@ -761,18 +887,18 @@ const LPRManagement: React.FC = () => {
                             }}
                           />
                           {users.length > 0 && (
-                            <div className="mt-2 border border-gray-300 rounded-md max-h-32 overflow-y-auto">
+                            <div className="mt-3 border-2 border-gray-300 rounded-xl max-h-40 overflow-y-auto shadow-lg bg-white">
                               {users.map((user) => (
                                 <div
                                   key={user.id}
-                                  className="p-2 hover:bg-gray-50 cursor-pointer"
+                                  className="p-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 cursor-pointer transition-all border-b border-gray-100 last:border-b-0"
                                   onClick={() => {
                                     setSelectedUserId(user.id);
                                     setSearchQuery(`${user.firstName} ${user.lastName} (${user.email})`);
                                     setUsers([]);
                                   }}
                                 >
-                                  <p className="font-medium">{user.firstName} {user.lastName}</p>
+                                  <p className="font-bold text-gray-900">{user.firstName} {user.lastName}</p>
                                   <p className="text-sm text-gray-600">{user.email}</p>
                                 </div>
                               ))}
@@ -784,10 +910,19 @@ const LPRManagement: React.FC = () => {
                           <button
                             onClick={() => handleProcessRecord('create_vehicle', { userId: selectedUserId })}
                             disabled={processing}
-                            className="btn-primary w-full"
+                            className="w-full px-4 py-3 bg-gradient-to-r from-green-600 via-green-700 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:via-green-800 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transform hover:scale-105 active:scale-95 disabled:transform-none"
                           >
-                            <UserPlus className="h-4 w-4 inline mr-2" />
-                            Crear Vehículo para Usuario
+                            {processing ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Procesando...
+                              </>
+                            ) : (
+                              <>
+                                <UserPlus className="h-4 w-4" />
+                                Crear Vehículo para Usuario
+                              </>
+                            )}
                           </button>
                         )}
                       </div>
@@ -797,18 +932,21 @@ const LPRManagement: React.FC = () => {
                     <button
                       onClick={() => handleProcessRecord('no_match')}
                       disabled={processing}
-                      className="btn-secondary w-full"
+                      className="w-full px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all shadow-lg hover:shadow-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transform hover:scale-105 active:scale-95 disabled:transform-none"
                     >
-                      <XCircle className="h-4 w-4 inline mr-2" />
+                      <XCircle className="h-4 w-4" />
                       Marcar como Sin Coincidencia
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="text-center text-gray-500 py-8">
-                <Search className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>Selecciona un registro LPR para ver detalles y procesar</p>
+              <div className="text-center text-gray-500 py-12">
+                <div className="p-4 bg-gray-100 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                  <Search className="h-10 w-10 text-gray-400" />
+                </div>
+                <p className="font-semibold text-gray-600">Selecciona un registro LPR</p>
+                <p className="text-sm text-gray-500 mt-1">para ver detalles y procesar</p>
               </div>
             )}
           </div>
@@ -816,47 +954,66 @@ const LPRManagement: React.FC = () => {
       </div>
 
       {/* Histórico de LPR */}
-      <div className="mt-8 bg-white rounded-lg shadow-sm">
-        <div className="p-6 border-b border-gray-200 bg-gray-50">
+      <div className="mt-8 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="p-5 bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Histórico de LPR (todos los estados)</h3>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-gray-600 to-gray-700 rounded-lg shadow-md">
+                <Clock className="h-5 w-5 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Histórico de LPR (todos los estados)</h3>
+            </div>
             <button
               onClick={fetchAllRecords}
-              className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              className="px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-xl hover:from-gray-700 hover:to-gray-800 transition-all shadow-md hover:shadow-lg flex items-center gap-2 font-semibold text-sm"
             >
+              <RefreshCw className="h-4 w-4" />
               Actualizar
             </button>
           </div>
         </div>
         <div className="p-6">
           {historyRecords.length === 0 ? (
-            <p className="text-gray-500">Sin registros.</p>
+            <div className="text-center py-8">
+              <p className="text-gray-500 font-medium">Sin registros.</p>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="text-left text-gray-600">
-                    <th className="py-2 pr-4">Fecha</th>
-                    <th className="py-2 pr-4">Placa</th>
-                    <th className="py-2 pr-4">Color</th>
-                    <th className="py-2 pr-4">Tipo</th>
-                    <th className="py-2 pr-4">Estado</th>
-                    <th className="py-2 pr-4">Imagen</th>
+                  <tr className="text-left text-gray-700 border-b-2 border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+                    <th className="py-4 pr-4 font-bold">Fecha</th>
+                    <th className="py-4 pr-4 font-bold">Placa</th>
+                    <th className="py-4 pr-4 font-bold">Color</th>
+                    <th className="py-4 pr-4 font-bold">Tipo</th>
+                    <th className="py-4 pr-4 font-bold">Estado</th>
                   </tr>
                 </thead>
                 <tbody>
                   {historyRecords.map((r) => (
-                    <tr key={r.id} className="border-t">
-                      <td className="py-2 pr-4">{new Date(r.detectedAt).toLocaleString()}</td>
-                      <td className="py-2 pr-4 font-mono">{r.plateNumber}</td>
-                      <td className="py-2 pr-4">{r.vehicleColor}</td>
-                      <td className="py-2 pr-4 capitalize">{(r as any).type || 'entry'}</td>
-                      <td className="py-2 pr-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(r.status)}`}>
-                          {r.status}
+                    <tr key={r.id} className="border-b border-gray-100 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 transition-all">
+                      <td className="py-4 pr-4 font-medium">{new Date(r.detectedAt).toLocaleString('es-ES')}</td>
+                      <td className="py-4 pr-4 font-mono font-bold text-lg">{r.plateNumber}</td>
+                      <td className="py-4 pr-4">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-6 h-6 rounded-full border-2 border-gray-300 shadow-md"
+                            style={{ backgroundColor: getColorFromName(r.vehicleColor) }}
+                            title={r.vehicleColor}
+                          />
+                          <span className="capitalize font-medium">{r.vehicleColor}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 pr-4">
+                        <span className="px-3 py-1.5 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-full text-xs font-bold border border-gray-300 shadow-sm">
+                          {translateType((r as any).type || 'entry')}
                         </span>
                       </td>
-                      <td className="py-2 pr-4 truncate max-w-[200px]" title={r.imagePath}>{r.imagePath}</td>
+                      <td className="py-4 pr-4">
+                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold shadow-sm ${getStatusColor(r.status)}`}>
+                          {translateStatus(r.status)}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -895,6 +1052,21 @@ const LPRManagement: React.FC = () => {
         clientData={clientModalData}
         onAction={handleClientAction}
         loading={processing}
+      />
+
+      {/* Modal de cámara para reconocimiento de placas */}
+      <LPRCameraModal
+        isOpen={isCameraModalOpen}
+        onClose={() => setIsCameraModalOpen(false)}
+        onPlateDetected={async (plate: string) => {
+          // Cuando se detecta una placa, usar el mismo flujo que el manual
+          if (plate && plate.trim()) {
+            await searchVehicle(plate.trim());
+          }
+        }}
+        onError={(error: string) => {
+          toast.error(error);
+        }}
       />
 
       {/* Modales de OCR removidos para flujo manual */}

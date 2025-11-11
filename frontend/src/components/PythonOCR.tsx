@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, CheckCircle } from 'lucide-react';
+import { Loader2, CheckCircle, Python, Zap, AlertCircle } from 'lucide-react';
 
 interface PythonOCRProps {
   imageData: string;
@@ -343,62 +343,119 @@ extract_plate_text_python('${detectResult.processed_image}')
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center space-x-3 mb-4">
-        <div className="flex items-center space-x-2">
-          {isPythonReady ? (
-            <CheckCircle className="h-5 w-5 text-green-500" />
-          ) : (
-            <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
-          )}
-          <h3 className="text-lg font-semibold text-gray-900">Python OCR</h3>
+    <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-100">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
+            {isPythonReady ? (
+              <CheckCircle className="h-5 w-5 text-white" />
+            ) : (
+              <Loader2 className="h-5 w-5 text-white animate-spin" />
+            )}
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Python className="h-5 w-5 text-blue-600" />
+              Python OCR
+            </h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {isPythonReady ? 'Listo para procesar' : 'Inicializando...'}
+            </p>
+          </div>
         </div>
-        <div className="text-sm text-gray-600">
-          {isPythonReady ? 'Listo' : 'Cargando...'}
+        <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+          isPythonReady 
+            ? 'bg-green-100 text-green-700' 
+            : 'bg-yellow-100 text-yellow-700'
+        }`}>
+          {isPythonReady ? 'Listo' : 'Cargando'}
         </div>
       </div>
 
       {progress && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-blue-800 text-sm">{progress}</p>
+        <div className={`mb-4 p-3 rounded-lg border-2 ${
+          progress.includes('✅') 
+            ? 'bg-green-50 border-green-200' 
+            : progress.includes('❌')
+            ? 'bg-red-50 border-red-200'
+            : 'bg-blue-50 border-blue-200'
+        }`}>
+          <p className={`text-sm font-medium flex items-center gap-2 ${
+            progress.includes('✅') 
+              ? 'text-green-800' 
+              : progress.includes('❌')
+              ? 'text-red-800'
+              : 'text-blue-800'
+          }`}>
+            {progress.includes('✅') ? (
+              <CheckCircle className="h-4 w-4" />
+            ) : progress.includes('❌') ? (
+              <AlertCircle className="h-4 w-4" />
+            ) : (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            )}
+            {progress.replace(/[🐍📦📚🔧✅❌]/g, '').trim()}
+          </p>
         </div>
       )}
 
       <div className="space-y-4">
-        <div className="text-sm text-gray-600">
-          <p><strong>Ventajas de Python OCR:</strong></p>
-          <ul className="list-disc list-inside mt-2 space-y-1">
-            <li>🎯 <strong>OpenCV</strong> para detección específica de placas</li>
-            <li>🔍 <strong>Múltiples técnicas</strong> de preprocesamiento</li>
-            <li>📐 <strong>Detección de contornos</strong> para encontrar placas</li>
-            <li>🎨 <strong>Filtros específicos</strong> para placas bolivianas</li>
-            <li>⚡ <strong>Procesamiento local</strong> sin servidor</li>
+        <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
+          <p className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+            <Zap className="h-4 w-4 text-blue-600" />
+            Ventajas de Python OCR:
+          </p>
+          <ul className="text-sm text-gray-700 space-y-1.5">
+            <li className="flex items-start gap-2">
+              <span className="text-blue-600 mt-0.5">•</span>
+              <span><strong>OpenCV</strong> para detección específica de placas</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-blue-600 mt-0.5">•</span>
+              <span><strong>Múltiples técnicas</strong> de preprocesamiento</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-blue-600 mt-0.5">•</span>
+              <span><strong>Detección de contornos</strong> para encontrar placas</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-blue-600 mt-0.5">•</span>
+              <span><strong>Filtros específicos</strong> para placas bolivianas</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-blue-600 mt-0.5">•</span>
+              <span><strong>Procesamiento local</strong> sin servidor</span>
+            </li>
           </ul>
         </div>
 
         <button
           onClick={processImageWithPython}
           disabled={!isPythonReady || isLoading || !imageData}
-          className={`w-full px-4 py-3 rounded-lg font-medium transition-colors ${
+          className={`w-full px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
             isPythonReady && imageData && !isLoading
-              ? 'bg-green-600 text-white hover:bg-green-700'
+              ? 'bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800 shadow-md hover:shadow-lg'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}
         >
           {isLoading ? (
-            <div className="flex items-center justify-center space-x-2">
+            <>
               <Loader2 className="h-4 w-4 animate-spin" />
               <span>Procesando con Python...</span>
-            </div>
+            </>
           ) : (
-            '🐍 Procesar con Python OCR'
+            <>
+              <Python className="h-4 w-4" />
+              <span>Procesar con Python OCR</span>
+            </>
           )}
         </button>
 
         {!isPythonReady && (
-          <div className="text-sm text-gray-500 text-center">
-            <p>⏳ Cargando Python y librerías...</p>
-            <p className="text-xs mt-1">Esto puede tomar unos segundos la primera vez</p>
+          <div className="text-center py-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <Loader2 className="h-6 w-6 mx-auto mb-2 text-yellow-600 animate-spin" />
+            <p className="text-sm text-yellow-800 font-medium">Cargando Python y librerías...</p>
+            <p className="text-xs text-yellow-700 mt-1">Esto puede tomar unos segundos la primera vez</p>
           </div>
         )}
       </div>

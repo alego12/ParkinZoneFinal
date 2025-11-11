@@ -10,7 +10,10 @@ import {
   MapPin,
   Calendar,
   X,
-  Check
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -144,6 +147,38 @@ const LPRRecords: React.FC = () => {
     return 'text-red-600';
   };
 
+  const getColorFromName = (colorName: string): string => {
+    const colorMap: { [key: string]: string } = {
+      'blanco': '#FFFFFF',
+      'blanca': '#FFFFFF',
+      'white': '#FFFFFF',
+      'negro': '#000000',
+      'negra': '#000000',
+      'black': '#000000',
+      'gris': '#808080',
+      'gray': '#808080',
+      'rojo': '#FF0000',
+      'roja': '#FF0000',
+      'red': '#FF0000',
+      'azul': '#0000FF',
+      'blue': '#0000FF',
+      'verde': '#008000',
+      'green': '#008000',
+      'amarillo': '#FFFF00',
+      'yellow': '#FFFF00',
+      'plateado': '#C0C0C0',
+      'silver': '#C0C0C0',
+      'plateada': '#C0C0C0',
+      'naranja': '#FFA500',
+      'orange': '#FFA500',
+      'marrón': '#8B4513',
+      'brown': '#8B4513',
+    };
+    
+    const normalizedColor = colorName.toLowerCase().trim();
+    return colorMap[normalizedColor] || '#808080';
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -171,7 +206,7 @@ const LPRRecords: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Todos los estados</option>
             <option value="pending">Pendiente</option>
@@ -182,8 +217,10 @@ const LPRRecords: React.FC = () => {
           </select>
           <button
             onClick={fetchRecords}
-            className="btn-primary"
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Actualizar
           </button>
         </div>
@@ -218,7 +255,15 @@ const LPRRecords: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {records.map((record) => (
+              {records.length === 0 && !loading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center">
+                    <Eye className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-500">No hay registros LPR</p>
+                  </td>
+                </tr>
+              ) : (
+                records.map((record) => (
                 <tr key={record.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
@@ -236,8 +281,8 @@ const LPRRecords: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div 
-                        className="w-4 h-4 rounded-full mr-2 border border-gray-300"
-                        style={{ backgroundColor: record.vehicleColor.toLowerCase() }}
+                        className="w-4 h-4 rounded-full mr-2 border border-gray-300 flex-shrink-0"
+                        style={{ backgroundColor: getColorFromName(record.vehicleColor) }}
                       ></div>
                       <span className="text-sm text-gray-900 capitalize">
                         {record.vehicleColor}
@@ -250,7 +295,19 @@ const LPRRecords: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(record.detectedAt).toLocaleString()}
+                    <div className="flex flex-col">
+                      <span>{new Date(record.detectedAt).toLocaleDateString('es-CO', { 
+                        day: '2-digit', 
+                        month: 'short',
+                        year: 'numeric'
+                      })}</span>
+                      <span className="text-xs text-gray-500">
+                        {new Date(record.detectedAt).toLocaleTimeString('es-CO', { 
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(record.status)}`}>
@@ -261,15 +318,16 @@ const LPRRecords: React.FC = () => {
                     {record.status === 'pending' && (
                       <button
                         onClick={() => handleMatchRecord(record)}
-                        className="text-blue-600 hover:text-blue-900 mr-2"
+                        className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                       >
-                        <Search className="h-4 w-4 inline mr-1" />
+                        <Search className="h-4 w-4" />
                         Buscar
                       </button>
                     )}
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -281,16 +339,18 @@ const LPRRecords: React.FC = () => {
               <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1 px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
+                <ChevronLeft className="h-4 w-4" />
                 Anterior
               </button>
               <button
                 onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1 px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Siguiente
+                <ChevronRight className="h-4 w-4" />
               </button>
             </div>
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
@@ -301,20 +361,22 @@ const LPRRecords: React.FC = () => {
                 </p>
               </div>
               <div>
-                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                <nav className="relative z-0 inline-flex rounded-lg shadow-sm -space-x-px">
                   <button
                     onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
-                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-1 px-3 py-2 rounded-l-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
+                    <ChevronLeft className="h-4 w-4" />
                     Anterior
                   </button>
                   <button
                     onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
-                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-1 px-3 py-2 rounded-r-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Siguiente
+                    <ChevronRight className="h-4 w-4" />
                   </button>
                 </nav>
               </div>

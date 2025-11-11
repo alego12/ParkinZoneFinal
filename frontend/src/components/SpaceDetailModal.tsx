@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { ParkingSpace, Reservation, Schedule } from '../types';
-import { X, MapPin, Clock, Car, User, Phone, Calendar, DollarSign, Unlock, AlertTriangle, QrCode, CreditCard, Banknote } from 'lucide-react';
+import { X, MapPin, Clock, Car, User, Phone, Calendar, DollarSign, Unlock, AlertTriangle, QrCode, CreditCard, Banknote, Bike, Loader2, CheckCircle, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { translateVehicleType, translateVehicleTypeShort } from '../utils/translations';
 
 interface SpaceDetailModalProps {
   space: ParkingSpace;
@@ -119,15 +120,15 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'available':
-        return 'bg-green-100 text-green-800';
+        return 'bg-gradient-to-r from-green-100 to-green-200 text-green-800 border border-green-300';
       case 'occupied':
-        return 'bg-red-100 text-red-800';
+        return 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 border border-red-300';
       case 'maintenance':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 border border-yellow-300';
       case 'reserved':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border border-blue-300';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 border border-gray-300';
     }
   };
 
@@ -143,6 +144,22 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
         return 'Reservado';
       default:
         return 'Desconocido';
+    }
+  };
+
+  const getVehicleIcon = (vehicleType: 'car' | 'motorcycle' | 'both') => {
+    if (vehicleType === 'car') {
+      return <Car className="h-5 w-5" />;
+    } else if (vehicleType === 'motorcycle') {
+      return <Bike className="h-5 w-5" />;
+    } else {
+      // 'both' - mostrar ambos iconos superpuestos
+      return (
+        <div className="relative h-5 w-5 flex items-center justify-center">
+          <Car className="h-5 w-5 absolute" />
+          <Bike className="h-4 w-4 absolute -bottom-0.5 -right-0.5 opacity-95" />
+        </div>
+      );
     }
   };
 
@@ -355,24 +372,26 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
   return (
     <>
       {!paymentOnly && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
-            <MapPin className="h-6 w-6 text-blue-600" />
+        <div className="flex justify-between items-start p-6 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg">
+              <MapPin className="h-6 w-6 text-white" />
+            </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-2xl font-bold text-gray-900">
                 Espacio {space.spaceNumber}
               </h2>
-              <p className="text-sm text-gray-600">{space.zone}</p>
-                </div>
+              <p className="text-sm text-gray-600 font-medium mt-1">{space.zone}</p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
           >
-            <X className="h-6 w-6" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
@@ -388,26 +407,37 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
             <div className="space-y-6">
               {/* Current Status */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Estado Actual</h3>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <div className="p-2 bg-gradient-to-br from-gray-600 to-gray-700 rounded-lg">
+                    <Car className="h-4 w-4 text-white" />
+                  </div>
+                  Estado Actual
+                </h3>
+                <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-5 rounded-xl border-2 border-gray-200 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
                       <Car className="h-5 w-5 text-gray-600" />
-                      <span className="font-medium">Estado del Espacio</span>
+                      <span className="font-bold text-gray-900">Estado del Espacio</span>
                     </div>
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(space.status)}`}>
+                    <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-bold shadow-sm ${getStatusColor(space.status)}`}>
                       {getStatusText(space.status)}
                     </span>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-600">Tipo de Vehículo</p>
-                      <p className="font-medium">{space.vehicleType === 'both' ? 'Carros y Motos' : space.vehicleType}</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white/60 p-3 rounded-lg">
+                      <p className="text-xs font-bold text-gray-600 mb-2">Tipo de Vehículo</p>
+                      <div className="flex items-center gap-2">
+                        {getVehicleIcon(space.vehicleType)}
+                        <p className="font-bold text-gray-900">{translateVehicleType(space.vehicleType)}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Tarifas</p>
-                      <p className="font-medium">
-                        Carro: ${space.carRate} | Moto: ${space.motorcycleRate}
+                    <div className="bg-white/60 p-3 rounded-lg">
+                      <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1">
+                        <DollarSign className="h-3 w-3" />
+                        Tarifas
+                      </p>
+                      <p className="font-bold text-gray-900">
+                        Auto: ${space.carRate} | Motocicleta: ${space.motorcycleRate}
                       </p>
                     </div>
                   </div>
@@ -417,14 +447,19 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
               {/* Current Reservation or Occupied Vehicle */}
               {details.currentReservation ? (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Reserva Actual</h3>
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-3">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="p-2 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg">
+                      <Clock className="h-4 w-4 text-white" />
+                    </div>
+                    Reserva Actual
+                  </h3>
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl border-2 border-blue-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
                         <Clock className="h-5 w-5 text-blue-600" />
-                        <span className="font-medium text-blue-900">Reserva Activa</span>
+                        <span className="font-bold text-blue-900">Reserva Activa</span>
                       </div>
-                      <div className="flex space-x-2">
+                      <div className="flex gap-2">
                         {space.status === 'occupied' && details.currentReservation.status === 'occupied' && (
                           <button
                             onClick={() => {
@@ -434,7 +469,7 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
                               }
                               setShowMethodModal(true);
                             }}
-                            className="flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-md hover:shadow-lg font-semibold text-sm transform hover:scale-105 active:scale-95"
                           >
                             <Unlock className="h-4 w-4" />
                             <span>Liberar Espacio</span>
@@ -442,14 +477,14 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
                         )}
                         <button
                           onClick={() => setShowLiberateModal(true)}
-                          className="flex items-center space-x-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all shadow-md hover:shadow-lg font-semibold text-sm transform hover:scale-105 active:scale-95"
                         >
                           <Unlock className="h-4 w-4" />
-                          <span>Finalizar Reserva</span>
+                          <span>Finalizar</span>
                         </button>
                         <button
                           onClick={handleSetMaintenanceSafely}
-                          className="flex items-center space-x-2 px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm"
+                          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-xl hover:from-yellow-700 hover:to-orange-700 transition-all shadow-md hover:shadow-lg font-semibold text-sm transform hover:scale-105 active:scale-95"
                         >
                           <AlertTriangle className="h-4 w-4" />
                           <span>Mantenimiento</span>
@@ -457,9 +492,12 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-600">Cliente</p>
-                        <p className="font-medium">
+                      <div className="bg-white/60 p-3 rounded-lg">
+                        <p className="text-xs font-bold text-gray-600 mb-1 flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          Cliente
+                        </p>
+                        <p className="font-bold text-gray-900">
                           {details.currentReservation.user?.firstName} {details.currentReservation.user?.lastName}
                         </p>
                         <p className="text-sm text-gray-600 flex items-center mt-1">
@@ -467,24 +505,30 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
                           {details.currentReservation.user?.phone}
                         </p>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Vehículo</p>
-                        <p className="font-medium">
-                          {details.currentReservation.vehicle?.model} - {details.currentReservation.vehicle?.plate}
+                      <div className="bg-white/60 p-3 rounded-lg">
+                        <p className="text-xs font-bold text-gray-600 mb-1 flex items-center gap-1">
+                          <Car className="h-3 w-3" />
+                          Vehículo
+                        </p>
+                        <p className="font-bold text-gray-900">
+                          {details.currentReservation.vehicle?.model} - <span className="font-mono">{details.currentReservation.vehicle?.plate}</span>
                         </p>
                         <p className="text-sm text-gray-600">
-                          {details.currentReservation.vehicle?.color} • {details.currentReservation.vehicle?.type}
+                          {details.currentReservation.vehicle?.color} • {details.currentReservation.vehicle?.type ? translateVehicleTypeShort(details.currentReservation.vehicle.type) : 'N/A'}
                         </p>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Hora de Inicio</p>
-                        <p className="font-medium">
+                      <div className="bg-white/60 p-3 rounded-lg">
+                        <p className="text-xs font-bold text-gray-600 mb-1 flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Hora de Inicio
+                        </p>
+                        <p className="font-bold text-gray-900 text-sm">
                           {formatDate(details.currentReservation.startTime)}
                         </p>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Estado</p>
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(details.currentReservation.status)}`}>
+                      <div className="bg-white/60 p-3 rounded-lg">
+                        <p className="text-xs font-bold text-gray-600 mb-1">Estado</p>
+                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold shadow-sm ${getStatusColor(details.currentReservation.status)}`}>
                           {getStatusText(details.currentReservation.status)}
                         </span>
                       </div>
@@ -493,27 +537,31 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
                 </div>
               ) : space.status === 'occupied' ? (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Vehículo Ocupando el Espacio</h3>
-                  <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-3">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="p-2 bg-gradient-to-br from-red-600 to-red-700 rounded-lg">
+                      <Car className="h-4 w-4 text-white" />
+                    </div>
+                    Vehículo Ocupando el Espacio
+                  </h3>
+                  <div className="bg-gradient-to-r from-red-50 to-rose-50 p-5 rounded-xl border-2 border-red-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
                         <Car className="h-5 w-5 text-red-600" />
-                        <span className="font-medium text-red-900">Espacio Ocupado</span>
+                        <span className="font-bold text-red-900">Espacio Ocupado</span>
                       </div>
-                      <div className="flex space-x-2">
+                      <div className="flex gap-2">
                         <button
                           onClick={() => setShowLiberateModal(true)}
-                          className="flex items-center space-x-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all shadow-md hover:shadow-lg font-semibold text-sm transform hover:scale-105 active:scale-95"
                         >
                           <Unlock className="h-4 w-4" />
                           <span>Liberar Espacio</span>
                         </button>
                         <button
                           onClick={() => {
-                            // Cambiar a mantenimiento
                             handleChangeStatus('maintenance');
                           }}
-                          className="flex items-center space-x-2 px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm"
+                          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-xl hover:from-yellow-700 hover:to-orange-700 transition-all shadow-md hover:shadow-lg font-semibold text-sm transform hover:scale-105 active:scale-95"
                         >
                           <AlertTriangle className="h-4 w-4" />
                           <span>Mantenimiento</span>
@@ -523,19 +571,25 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
                     
                     {details.occupiedVehicleInfo ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-gray-600">Vehículo Detectado</p>
-                          <p className="font-medium">
-                            {details.occupiedVehicleInfo.vehicle.model} - {details.occupiedVehicleInfo.vehicle.plate}
+                        <div className="bg-white/60 p-3 rounded-lg">
+                          <p className="text-xs font-bold text-gray-600 mb-1 flex items-center gap-1">
+                            <Car className="h-3 w-3" />
+                            Vehículo Detectado
+                          </p>
+                          <p className="font-bold text-gray-900">
+                            {details.occupiedVehicleInfo.vehicle.model} - <span className="font-mono">{details.occupiedVehicleInfo.vehicle.plate}</span>
                           </p>
                           <p className="text-sm text-gray-600">
-                            {details.occupiedVehicleInfo.vehicle.color} • {details.occupiedVehicleInfo.vehicle.type}
+                            {details.occupiedVehicleInfo.vehicle.color} • {details.occupiedVehicleInfo.vehicle.type ? translateVehicleTypeShort(details.occupiedVehicleInfo.vehicle.type) : 'N/A'}
                           </p>
                         </div>
                         {details.occupiedVehicleInfo.user ? (
-                          <div>
-                            <p className="text-sm text-gray-600">Propietario</p>
-                            <p className="font-medium">
+                          <div className="bg-white/60 p-3 rounded-lg">
+                            <p className="text-xs font-bold text-gray-600 mb-1 flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              Propietario
+                            </p>
+                            <p className="font-bold text-gray-900">
                               {details.occupiedVehicleInfo.user.firstName} {details.occupiedVehicleInfo.user.lastName}
                             </p>
                             <p className="text-sm text-gray-600 flex items-center mt-1">
@@ -544,18 +598,21 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
                             </p>
                           </div>
                         ) : (
-                          <div>
-                            <p className="text-sm text-gray-600">Hora de Detección</p>
-                            <p className="font-medium">
+                          <div className="bg-white/60 p-3 rounded-lg">
+                            <p className="text-xs font-bold text-gray-600 mb-1 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Hora de Detección
+                            </p>
+                            <p className="font-bold text-gray-900 text-sm">
                               {formatDate(details.occupiedVehicleInfo.detectedAt)}
                             </p>
-                            <p className="text-sm text-gray-500">Sin información de usuario</p>
+                            <p className="text-xs text-gray-500 mt-1">Sin información de usuario</p>
                           </div>
                         )}
                       </div>
                     ) : (
-                      <div className="text-center py-4">
-                        <p className="text-gray-600 mb-2">Este espacio está actualmente ocupado</p>
+                      <div className="text-center py-4 bg-white/60 rounded-lg">
+                        <p className="text-gray-600 mb-2 font-medium">Este espacio está actualmente ocupado</p>
                         <p className="text-sm text-gray-500">
                           No hay información de reserva disponible para este vehículo.
                           <br />
@@ -570,24 +627,27 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
               {/* Action Buttons for Available and Maintenance Spaces */}
               {space.status === 'available' && (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Acciones Disponibles</h3>
-                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-3">
-                        <Car className="h-5 w-5 text-green-600" />
-                        <span className="font-medium text-green-900">Espacio Disponible</span>
-                      </div>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={handleSetMaintenanceSafely}
-                          className="flex items-center space-x-2 px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm"
-                        >
-                          <AlertTriangle className="h-4 w-4" />
-                          <span>Marcar Mantenimiento</span>
-                        </button>
-                      </div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="p-2 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg">
+                      <Car className="h-4 w-4 text-white" />
                     </div>
-                    <p className="text-sm text-gray-600">
+                    Acciones Disponibles
+                  </h3>
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-xl border-2 border-green-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <Car className="h-5 w-5 text-green-600" />
+                        <span className="font-bold text-green-900">Espacio Disponible</span>
+                      </div>
+                      <button
+                        onClick={handleSetMaintenanceSafely}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-xl hover:from-yellow-700 hover:to-orange-700 transition-all shadow-md hover:shadow-lg font-semibold text-sm transform hover:scale-105 active:scale-95"
+                      >
+                        <AlertTriangle className="h-4 w-4" />
+                        <span>Marcar Mantenimiento</span>
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-600 font-medium">
                       Este espacio está disponible para nuevas reservas. Puedes marcarlo como en mantenimiento si es necesario.
                     </p>
                   </div>
@@ -596,27 +656,29 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
 
               {space.status === 'maintenance' && (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Acciones Disponibles</h3>
-                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-3">
-                        <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                        <span className="font-medium text-yellow-900">En Mantenimiento</span>
-                      </div>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => {
-                            // Cambiar a disponible
-                            handleChangeStatus('available');
-                          }}
-                          className="flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                        >
-                          <Car className="h-4 w-4" />
-                          <span>Marcar Disponible</span>
-                        </button>
-                      </div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="p-2 bg-gradient-to-br from-yellow-600 to-orange-600 rounded-lg">
+                      <AlertTriangle className="h-4 w-4 text-white" />
                     </div>
-                    <p className="text-sm text-gray-600">
+                    Acciones Disponibles
+                  </h3>
+                  <div className="bg-gradient-to-r from-yellow-50 to-amber-50 p-5 rounded-xl border-2 border-yellow-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                        <span className="font-bold text-yellow-900">En Mantenimiento</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          handleChangeStatus('available');
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-md hover:shadow-lg font-semibold text-sm transform hover:scale-105 active:scale-95"
+                      >
+                        <Car className="h-4 w-4" />
+                        <span>Marcar Disponible</span>
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-600 font-medium">
                       Este espacio está en mantenimiento. Puedes marcarlo como disponible cuando esté listo para uso.
                     </p>
                   </div>
@@ -626,33 +688,46 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
               {/* Today's Schedule */}
               {details.todaySchedule && (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Horario del Día</h3>
-                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                    <div className="flex items-center space-x-3 mb-3">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="p-2 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg">
+                      <Calendar className="h-4 w-4 text-white" />
+                    </div>
+                    Horario del Día
+                  </h3>
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-xl border-2 border-green-200 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
                       <Calendar className="h-5 w-5 text-green-600" />
-                      <span className="font-medium text-green-900">{details.todaySchedule.name}</span>
+                      <span className="font-bold text-green-900">{details.todaySchedule.name}</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-600">Horario de Apertura</p>
-                        <p className="font-medium">{formatTime(details.todaySchedule.startTime)}</p>
+                      <div className="bg-white/60 p-3 rounded-lg">
+                        <p className="text-xs font-bold text-gray-600 mb-1 flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Horario de Apertura
+                        </p>
+                        <p className="font-bold text-gray-900">{formatTime(details.todaySchedule.startTime)}</p>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Horario de Cierre</p>
-                        <p className="font-medium">{formatTime(details.todaySchedule.endTime)}</p>
+                      <div className="bg-white/60 p-3 rounded-lg">
+                        <p className="text-xs font-bold text-gray-600 mb-1 flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Horario de Cierre
+                        </p>
+                        <p className="font-bold text-gray-900">{formatTime(details.todaySchedule.endTime)}</p>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Tarifa Extendida</p>
-                        <p className="font-medium flex items-center">
-                          <DollarSign className="h-4 w-4 mr-1" />
-                          {details.todaySchedule.overtimeRate}
+                      <div className="bg-white/60 p-3 rounded-lg">
+                        <p className="text-xs font-bold text-gray-600 mb-1 flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          Tarifa Extendida
+                        </p>
+                        <p className="font-bold text-gray-900 flex items-center">
+                          ${details.todaySchedule.overtimeRate}
                         </p>
                       </div>
                     </div>
                     {details.todaySchedule.description && (
-                      <div className="mt-3">
-                        <p className="text-sm text-gray-600">Descripción</p>
-                        <p className="text-sm">{details.todaySchedule.description}</p>
+                      <div className="mt-4 bg-white/60 p-3 rounded-lg">
+                        <p className="text-xs font-bold text-gray-600 mb-1">Descripción</p>
+                        <p className="text-sm text-gray-900">{details.todaySchedule.description}</p>
                       </div>
                     )}
                   </div>
@@ -662,27 +737,35 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
               {/* Recent Reservations */}
               {(details.recentReservations || []).length > 0 && (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Reservas Recientes (Últimos 7 días)</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="p-2 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg">
+                      <Calendar className="h-4 w-4 text-white" />
+                    </div>
+                    Reservas Recientes (Últimos 7 días)
+                  </h3>
                   <div className="space-y-3 max-h-64 overflow-y-auto">
                     {(details.recentReservations || []).map((reservation) => (
-                      <div key={reservation.id} className="bg-gray-50 p-4 rounded-lg border">
+                      <div key={reservation.id} className="bg-gradient-to-r from-gray-50 to-purple-50 p-4 rounded-xl border-2 border-gray-200 hover:border-purple-300 hover:shadow-md transition-all">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <User className="h-4 w-4 text-gray-600" />
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-lg">
+                              <User className="h-4 w-4 text-white" />
+                            </div>
                             <div>
-                              <p className="font-medium">
+                              <p className="font-bold text-gray-900">
                                 {reservation.user?.firstName} {reservation.user?.lastName}
                               </p>
-                              <p className="text-sm text-gray-600">
-                                {reservation.vehicle?.model} - {reservation.vehicle?.plate}
+                              <p className="text-sm text-gray-600 font-medium">
+                                {reservation.vehicle?.model} - <span className="font-mono">{reservation.vehicle?.plate}</span>
                               </p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm text-gray-600">
+                            <p className="text-xs text-gray-600 mb-1 flex items-center gap-1 justify-end">
+                              <Clock className="h-3 w-3" />
                               {formatDate(reservation.startTime)}
                             </p>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(reservation.status)}`}>
+                            <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold shadow-sm ${getStatusColor(reservation.status)}`}>
                               {getStatusText(reservation.status)}
                             </span>
                           </div>
@@ -695,32 +778,37 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
 
               {/* Space Statistics */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Estadísticas del Espacio</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg text-center">
-                    <p className="text-2xl font-bold text-blue-600">{(details.recentReservations || []).length}</p>
-                    <p className="text-sm text-gray-600">Reservas (7 días)</p>
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <div className="p-2 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg">
+                    <DollarSign className="h-4 w-4 text-white" />
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-lg text-center">
-                    <p className="text-2xl font-bold text-green-600">
+                  Estadísticas del Espacio
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl border-2 border-blue-200 text-center shadow-sm">
+                    <p className="text-3xl font-bold text-blue-600">{(details.recentReservations || []).length}</p>
+                    <p className="text-sm font-bold text-gray-600 mt-1">Reservas (7 días)</p>
+                  </div>
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border-2 border-green-200 text-center shadow-sm">
+                    <p className="text-3xl font-bold text-green-600">
                       {(details.recentReservations || []).filter(r => r.status === 'completed').length}
                     </p>
-                    <p className="text-sm text-gray-600">Completadas</p>
+                    <p className="text-sm font-bold text-gray-600 mt-1">Completadas</p>
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-lg text-center">
-                    <p className="text-2xl font-bold text-yellow-600">
+                  <div className="bg-gradient-to-br from-yellow-50 to-amber-50 p-4 rounded-xl border-2 border-yellow-200 text-center shadow-sm">
+                    <p className="text-3xl font-bold text-yellow-600">
                       {(details.recentReservations || []).filter(r => r.status === 'cancelled').length}
                     </p>
-                    <p className="text-sm text-gray-600">Canceladas</p>
+                    <p className="text-sm font-bold text-gray-600 mt-1">Canceladas</p>
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-lg text-center">
-                    <p className="text-2xl font-bold text-purple-600">
+                  <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-4 rounded-xl border-2 border-purple-200 text-center shadow-sm">
+                    <p className="text-3xl font-bold text-purple-600">
                       ${(details.recentReservations || []).reduce((sum, r) => {
                         const amount = typeof r.totalAmount === 'number' ? r.totalAmount : 0;
                         return sum + amount;
                       }, 0).toFixed(2)}
                     </p>
-                    <p className="text-sm text-gray-600">Ingresos (7 días)</p>
+                    <p className="text-sm font-bold text-gray-600 mt-1">Ingresos (7 días)</p>
                   </div>
                 </div>
               </div>
@@ -733,10 +821,10 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
+        <div className="flex justify-end space-x-3 p-6 border-t-2 border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+            className="px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl hover:from-gray-600 hover:to-gray-700 transition-all shadow-lg hover:shadow-xl font-bold transform hover:scale-105 active:scale-95"
           >
             Cerrar
           </button>
@@ -747,27 +835,27 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
 
       {/* Liberation Confirmation Modal */}
       {showLiberateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <AlertTriangle className="h-6 w-6 text-red-600" />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-4 mb-6 pb-4 border-b-2 border-gray-200">
+              <div className="p-3 bg-gradient-to-br from-red-600 to-red-700 rounded-xl shadow-lg">
+                <AlertTriangle className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Liberar Espacio</h3>
-                <p className="text-sm text-gray-600">Espacio {space.spaceNumber} - {space.zone}</p>
+                <h3 className="text-xl font-bold text-gray-900">Liberar Espacio</h3>
+                <p className="text-sm text-gray-600 font-medium mt-1">Espacio {space.spaceNumber} - {space.zone}</p>
               </div>
             </div>
 
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-bold text-gray-700 mb-2">
                   Razón de liberación *
                 </label>
                 <select
                   value={liberateReason}
                   onChange={(e) => setLiberateReason(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all font-medium"
                   required
                 >
                   <option value="">Selecciona una razón</option>
@@ -780,37 +868,37 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-bold text-gray-700 mb-2">
                   Notas adicionales (opcional)
                 </label>
                 <textarea
                   value={liberateNotes}
                   onChange={(e) => setLiberateNotes(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all placeholder:text-gray-400"
                   placeholder="Agrega cualquier información adicional..."
                 />
               </div>
             </div>
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-              <div className="flex items-start">
-                <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2" />
+            <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-200 rounded-xl p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-yellow-800">
-                  <p className="font-medium mb-1">Acción importante:</p>
+                  <p className="font-bold mb-1">Acción importante:</p>
                   <p>Al liberar este espacio, se marcará como disponible y cualquier reserva activa será finalizada automáticamente.</p>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowLiberateModal(false);
                   setLiberateReason('');
                   setLiberateNotes('');
                 }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl hover:from-gray-600 hover:to-gray-700 transition-all shadow-lg hover:shadow-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 disabled:transform-none"
                 disabled={liberating}
               >
                 Cancelar
@@ -818,11 +906,11 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
               <button
                 onClick={handleLiberateSpace}
                 disabled={liberating || !liberateReason.trim()}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all shadow-lg hover:shadow-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transform hover:scale-105 active:scale-95 disabled:transform-none"
               >
                 {liberating ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Liberando...</span>
                   </>
                 ) : (
@@ -839,25 +927,74 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
 
       {/* Method Selection Modal (flujo rápido) */}
       {showMethodModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[65] p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Selecciona método de pago</h3>
-            <p className="text-sm text-gray-600 mb-4">El vehículo se está retirando. Selecciona el método con el que pagará.</p>
-            <div className="flex items-center space-x-3 mb-4">
-              <button type="button" onClick={() => setSelectedMethod('cash')} className={`px-3 py-2 rounded-lg border ${selectedMethod==='cash' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'}`}>
-                <Banknote className="h-4 w-4 inline mr-1" /> Efectivo
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[65] p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 animate-in zoom-in-95 duration-200">
+            <div className="mb-6 pb-4 border-b-2 border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Selecciona método de pago</h3>
+              <p className="text-sm text-gray-600 font-medium">El vehículo se está retirando. Selecciona el método con el que pagará.</p>
+            </div>
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <button 
+                type="button" 
+                onClick={() => setSelectedMethod('cash')} 
+                className={`px-4 py-3 rounded-xl border-2 transition-all font-semibold flex flex-col items-center gap-2 ${
+                  selectedMethod==='cash' 
+                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white border-green-600 shadow-lg scale-105' 
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-green-300 hover:bg-gray-50'
+                }`}
+              >
+                <Banknote className="h-5 w-5" />
+                <span className="text-sm">Efectivo</span>
               </button>
-              <button type="button" onClick={() => setSelectedMethod('qr')} className={`px-3 py-2 rounded-lg border ${selectedMethod==='qr' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'}`}>
-                <QrCode className="h-4 w-4 inline mr-1" /> QR
+              <button 
+                type="button" 
+                onClick={() => setSelectedMethod('qr')} 
+                className={`px-4 py-3 rounded-xl border-2 transition-all font-semibold flex flex-col items-center gap-2 ${
+                  selectedMethod==='qr' 
+                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white border-green-600 shadow-lg scale-105' 
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-green-300 hover:bg-gray-50'
+                }`}
+              >
+                <QrCode className="h-5 w-5" />
+                <span className="text-sm">QR</span>
               </button>
-              <button type="button" onClick={() => setSelectedMethod('card')} className={`px-3 py-2 rounded-lg border ${selectedMethod==='card' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'}`}>
-                <CreditCard className="h-4 w-4 inline mr-1" /> Tarjeta
+              <button 
+                type="button" 
+                onClick={() => setSelectedMethod('card')} 
+                className={`px-4 py-3 rounded-xl border-2 transition-all font-semibold flex flex-col items-center gap-2 ${
+                  selectedMethod==='card' 
+                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white border-green-600 shadow-lg scale-105' 
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-green-300 hover:bg-gray-50'
+                }`}
+              >
+                <CreditCard className="h-5 w-5" />
+                <span className="text-sm">Tarjeta</span>
               </button>
             </div>
-            <div className="flex justify-end space-x-3">
-              <button onClick={() => setShowMethodModal(false)} className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors" disabled={paymentProcessing}>Cancelar</button>
-              <button onClick={handleConfirmMethodAndLiberate} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors" disabled={paymentProcessing}>
-                {paymentProcessing ? 'Procesando...' : 'Confirmar y Liberar'}
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={() => setShowMethodModal(false)} 
+                className="px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl hover:from-gray-600 hover:to-gray-700 transition-all shadow-lg hover:shadow-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 disabled:transform-none" 
+                disabled={paymentProcessing}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleConfirmMethodAndLiberate} 
+                className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transform hover:scale-105 active:scale-95 disabled:transform-none" 
+                disabled={paymentProcessing}
+              >
+                {paymentProcessing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Procesando...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    <span>Confirmar y Liberar</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -866,90 +1003,118 @@ const SpaceDetailModal: React.FC<SpaceDetailModalProps> = ({ space, isOpen, onCl
 
       {/* Payment Modal */}
       {showPaymentModal && paymentReservation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
-          <div className="bg-white rounded-lg max-w-lg w-full p-6">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Registrar Pago</h3>
-              <p className="text-sm text-gray-600">Reserva #{paymentReservation.id} • Inicio {formatDate(paymentReservation.startTime)}</p>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-gray-200 animate-in zoom-in-95 duration-200">
+            <div className="mb-6 pb-4 border-b-2 border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Registrar Pago</h3>
+              <p className="text-sm text-gray-600 font-medium">Reserva #{paymentReservation.id} • Inicio {formatDate(paymentReservation.startTime)}</p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Monto a cobrar</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-1">
+                  <DollarSign className="h-4 w-4" />
+                  Monto a cobrar
+                </label>
                 <input
                   type="number"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
                   min={0}
                   step={0.01}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Método de pago</label>
-                <div className="flex items-center space-x-3">
+                <label className="block text-sm font-bold text-gray-700 mb-3">Método de pago</label>
+                <div className="grid grid-cols-3 gap-3">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('cash')}
-                    className={`px-3 py-2 rounded-lg border ${paymentMethod==='cash' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                    className={`px-4 py-3 rounded-xl border-2 transition-all font-semibold flex flex-col items-center gap-2 ${
+                      paymentMethod==='cash' 
+                        ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white border-green-600 shadow-lg scale-105' 
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-green-300 hover:bg-gray-50'
+                    }`}
                   >
-                    <Banknote className="h-4 w-4 inline mr-1" /> Efectivo
+                    <Banknote className="h-5 w-5" />
+                    <span className="text-sm">Efectivo</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('qr')}
-                    className={`px-3 py-2 rounded-lg border ${paymentMethod==='qr' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                    className={`px-4 py-3 rounded-xl border-2 transition-all font-semibold flex flex-col items-center gap-2 ${
+                      paymentMethod==='qr' 
+                        ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white border-green-600 shadow-lg scale-105' 
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-green-300 hover:bg-gray-50'
+                    }`}
                   >
-                    <QrCode className="h-4 w-4 inline mr-1" /> QR
+                    <QrCode className="h-5 w-5" />
+                    <span className="text-sm">QR</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('card')}
-                    className={`px-3 py-2 rounded-lg border ${paymentMethod==='card' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                    className={`px-4 py-3 rounded-xl border-2 transition-all font-semibold flex flex-col items-center gap-2 ${
+                      paymentMethod==='card' 
+                        ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white border-green-600 shadow-lg scale-105' 
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-green-300 hover:bg-gray-50'
+                    }`}
                   >
-                    <CreditCard className="h-4 w-4 inline mr-1" /> Tarjeta
+                    <CreditCard className="h-5 w-5" />
+                    <span className="text-sm">Tarjeta</span>
                   </button>
                 </div>
               </div>
 
               {paymentMethod === 'qr' && (
-                <div className="text-center">
+                <div className="text-center bg-gradient-to-r from-gray-50 to-blue-50 p-4 rounded-xl border-2 border-gray-200">
                   <img
                     src={(import.meta as any).env?.VITE_QR_PAYMENT_URL || 'https://res.cloudinary.com/dcybfl5ae/image/upload/v1760327765/rueda_negocios/comprobantes/BNB_Simple_2025_10_12-19_07_45_gvxwmo.png'}
                     alt="QR de pago"
-                    className="mx-auto h-48 w-48 object-contain border rounded"
+                    className="mx-auto h-48 w-48 object-contain border-2 border-gray-300 rounded-xl shadow-md"
                   />
-                  <p className="text-xs text-gray-500 mt-2">Escanea el QR para pagar. Completa la referencia con el código de transacción.</p>
+                  <p className="text-xs text-gray-600 mt-3 font-medium">Escanea el QR para pagar. Completa la referencia con el código de transacción.</p>
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Referencia (opcional)</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Referencia *</label>
                 <input
                   type="text"
                   value={paymentReference}
                   onChange={(e) => setPaymentReference(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all placeholder:text-gray-400"
                   placeholder="ID de transacción, últimos 4 de tarjeta, etc."
                 />
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex justify-end gap-3 mt-6 pt-6 border-t-2 border-gray-200">
               <button
                 onClick={() => { setShowPaymentModal(false); setPaymentReservation(null); }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl hover:from-gray-600 hover:to-gray-700 transition-all shadow-lg hover:shadow-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 disabled:transform-none"
                 disabled={paymentProcessing}
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCreatePayment}
-                disabled={paymentProcessing || paymentAmount <= 0}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={paymentProcessing || paymentAmount <= 0 || !paymentReference.trim()}
+                className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transform hover:scale-105 active:scale-95 disabled:transform-none"
               >
-                {paymentProcessing ? 'Registrando...' : 'Registrar Pago'}
+                {paymentProcessing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Registrando...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    <span>Registrar Pago</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

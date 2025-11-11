@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { Camera, CameraOff, AlertCircle, Bug, Upload, X } from 'lucide-react';
+import { Camera, CameraOff, AlertCircle, Bug, Upload, X, Loader2, Image, Eye, Play, Pause, CheckCircle } from 'lucide-react';
 import CameraDebug from './CameraDebug';
 import toast from 'react-hot-toast';
 
@@ -178,7 +178,7 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
   // Función para detectar bordes de caracteres y recortar inteligentemente
   const detectCharacterBounds = (imageData: string): Promise<{x: number, y: number, width: number, height: number} | null> => {
     return new Promise((resolve) => {
-      const img = new Image();
+      const img = document.createElement('img');
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -251,7 +251,7 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
   // Función para preprocesar imagen y mejorar OCR
   const preprocessImage = (imageData: string, region?: {x: number, y: number, width: number, height: number}): Promise<string> => {
     return new Promise(async (resolve) => {
-      const img = new Image();
+      const img = document.createElement('img');
       img.onload = async () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -616,23 +616,38 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
   }, []);
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Cámara LPR</h3>
-        <div className="flex space-x-2">
+    <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-100">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <Camera className="h-6 w-6 text-blue-600" />
+            Cámara LPR
+          </h3>
+          <p className="text-sm text-gray-600 mt-1">Reconocimiento de placas en tiempo real</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
           {!isActive ? (
             <>
             <button
               onClick={startCamera}
               disabled={isStarting}
-              className={`btn-primary flex items-center space-x-2 ${isStarting ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              <Camera className="h-4 w-4" />
-              <span>{isStarting ? 'Iniciando...' : 'Iniciar Cámara'}</span>
+              {isStarting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Iniciando...</span>
+                </>
+              ) : (
+                <>
+                  <Camera className="h-4 w-4" />
+                  <span>Iniciar Cámara</span>
+                </>
+              )}
             </button>
               <button
                 onClick={() => setShowUpload(true)}
-                className="btn-secondary flex items-center space-x-2"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-md hover:shadow-lg"
               >
                 <Upload className="h-4 w-4" />
                 <span>Subir Imagen</span>
@@ -641,7 +656,7 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
           ) : (
             <button
               onClick={stopCamera}
-              className="btn-secondary flex items-center space-x-2"
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-md hover:shadow-lg"
             >
               <CameraOff className="h-4 w-4" />
               <span>Detener Cámara</span>
@@ -649,7 +664,7 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
           )}
           <button
             onClick={() => setShowDebug(true)}
-            className="btn-secondary flex items-center space-x-2"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
             title="Debug de Cámara"
           >
             <Bug className="h-4 w-4" />
@@ -658,41 +673,52 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
           {processedImage && (
             <button
               onClick={() => setShowProcessedImage(!showProcessedImage)}
-              className="btn-secondary flex items-center space-x-2"
+              className="flex items-center gap-2 px-4 py-2 bg-green-200 text-green-700 rounded-lg hover:bg-green-300 transition-colors"
               title="Ver Imagen Procesada"
             >
-              <span>🔍</span>
+              <Eye className="h-4 w-4" />
               <span>Ver Procesada</span>
             </button>
           )}
           
           {/* Indicador de stream */}
           {streamRef.current && (
-            <div className="flex items-center px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-medium">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              Stream: ✓
+            <div className="flex items-center px-3 py-2 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 rounded-lg text-sm font-medium border border-green-200">
+              <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+              Stream Activo
             </div>
           )}
           {isPaused && (
             <button
               onClick={() => setUseFullImage(!useFullImage)}
-              className={`btn-secondary flex items-center space-x-2 ${
-                useFullImage ? 'bg-blue-600 text-white' : ''
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                useFullImage 
+                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
               title={useFullImage ? "Usar región de interés" : "Usar imagen completa"}
             >
-              <span>{useFullImage ? '🎯' : '🖼️'}</span>
-              <span>{useFullImage ? 'Región ROI' : 'Imagen Completa'}</span>
+              {useFullImage ? (
+                <>
+                  <CheckCircle className="h-4 w-4" />
+                  <span>Región ROI</span>
+                </>
+              ) : (
+                <>
+                  <Image className="h-4 w-4" />
+                  <span>Imagen Completa</span>
+                </>
+              )}
             </button>
           )}
         </div>
       </div>
 
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <div className="flex items-center">
-            <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
-            <p className="text-red-800">{error}</p>
+        <div className="mb-4 p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+            <p className="text-red-800 font-medium">{error}</p>
           </div>
         </div>
       )}
@@ -701,7 +727,10 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
       <div className={`${showSideBySide ? 'grid grid-cols-1 lg:grid-cols-2 gap-6' : 'block'}`}>
         {/* Columna izquierda: Video principal */}
         <div className="relative">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">📹 Video en Vivo</h4>
+          <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+            <Camera className="h-4 w-4 text-blue-600" />
+            Video en Vivo
+          </h4>
           
           {/* Elemento video siempre presente pero oculto cuando no está activo */}
           <video
@@ -724,10 +753,11 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
                 className="w-full h-full object-cover"
                 style={{ transform: 'scaleX(-1)' }} // Espejo para consistencia
               />
-              <div className="absolute top-2 left-2 bg-orange-500 text-white px-2 py-1 rounded text-xs font-medium">
-                ⏸️ Imagen Pausada
+              <div className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-md flex items-center gap-1">
+                <Pause className="h-3 w-3" />
+                Imagen Pausada
               </div>
-              <div className="absolute top-2 right-2 bg-orange-500 text-white px-2 py-1 rounded text-xs font-medium">
+              <div className="absolute top-2 right-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-md">
                 Tamaño Real
               </div>
             </div>
@@ -736,7 +766,10 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
 
         {/* Columna derecha: Detección y procesamiento */}
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">🔍 Detección y Procesamiento</h4>
+          <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+            <Eye className="h-4 w-4 text-green-600" />
+            Detección y Procesamiento
+          </h4>
           
           {/* Imagen procesada - Siempre visible cuando existe */}
           {processedImage && (
@@ -747,13 +780,14 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
                 className="w-full h-full object-cover"
                 style={{ transform: 'scaleX(-1)' }} // Espejo para consistencia
               />
-              <div className="absolute top-2 left-2 bg-blue-500 text-white px-2 py-1 rounded text-xs font-medium">
-                🔍 Imagen Procesada
+              <div className="absolute top-2 left-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-md flex items-center gap-1">
+                <Image className="h-3 w-3" />
+                Imagen Procesada
               </div>
-              <div className="absolute top-2 right-2 bg-blue-500 text-white px-2 py-1 rounded text-xs font-medium">
+              <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-md">
                 OCR Input
               </div>
-              <div className="absolute bottom-2 left-2 bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
+              <div className="absolute bottom-2 left-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-md">
                 Preprocesamiento: Azul→Negro, Blanco→Blanco
               </div>
             </div>
@@ -761,9 +795,9 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
           
           {/* Placeholder cuando no hay imagen procesada */}
           {!processedImage && (
-            <div className="w-full h-80 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+            <div className="w-full h-80 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
               <div className="text-center text-gray-500">
-                <div className="text-4xl mb-2">🔍</div>
+                <Eye className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                 <p className="text-sm font-medium">Imagen Preprocesada</p>
                 <p className="text-xs mt-1">Se mostrará aquí después de detectar una placa</p>
               </div>
@@ -771,8 +805,11 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
           )}
 
           {/* Información de detección */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h5 className="font-medium text-gray-900 mb-2">📊 Estado de Detección</h5>
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
+            <h5 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-blue-600" />
+              Estado de Detección
+            </h5>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Cámara:</span>
@@ -803,8 +840,11 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
           
           {/* Información del preprocesamiento */}
           {processedImage && (
-            <div className="bg-blue-50 rounded-lg p-4">
-              <h5 className="font-medium text-blue-900 mb-2">🔧 Preprocesamiento Aplicado</h5>
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+              <h5 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
+                <Image className="h-4 w-4 text-blue-600" />
+                Preprocesamiento Aplicado
+              </h5>
               <div className="space-y-2 text-sm text-blue-800">
                 <div className="flex justify-between">
                   <span>Filtro de color:</span>
@@ -873,33 +913,45 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
                 <button
                   onClick={pauseAndCapture}
                   disabled={isDetecting}
-                  className={`px-6 py-3 rounded-full font-medium transition-colors shadow-lg ${
+                  className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all shadow-lg ${
                     isDetecting
                       ? 'bg-gray-400 text-white cursor-not-allowed'
-                      : 'bg-orange-600 text-white hover:bg-orange-700'
+                      : 'bg-gradient-to-r from-orange-600 to-orange-700 text-white hover:from-orange-700 hover:to-orange-800'
                   }`}
                 >
-                  ⏸️ Pausar y Capturar
+                  <Pause className="h-5 w-5" />
+                  Pausar y Capturar
                 </button>
               ) : (
                 <>
                   <button
                     onClick={detectText}
                     disabled={isDetecting}
-                    className={`px-6 py-3 rounded-full font-medium transition-colors shadow-lg ${
+                    className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all shadow-lg ${
                       isDetecting
                         ? 'bg-gray-400 text-white cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800'
                     }`}
                   >
-                    {isDetecting ? 'Extrayendo...' : '🔍 Extraer Texto'}
+                    {isDetecting ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Extrayendo...
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="h-5 w-5" />
+                        Extraer Texto
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={resumeVideo}
                     disabled={isDetecting}
-                    className="px-6 py-3 rounded-full font-medium transition-colors shadow-lg bg-green-600 text-white hover:bg-green-700"
+                    className="flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all shadow-lg bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800"
                   >
-                    ▶️ Reanudar
+                    <Play className="h-5 w-5" />
+                    Reanudar
                   </button>
                 </>
               )}
@@ -907,17 +959,17 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
           </div>
           
         ) : isStarting ? (
-          <div className="w-full h-64 bg-blue-50 rounded-lg flex items-center justify-center border-2 border-blue-200">
+          <div className="w-full h-64 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg flex items-center justify-center border-2 border-blue-200">
             <div className="text-center text-blue-600">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-blue-600" />
               <p className="text-lg font-medium mb-2">Iniciando Cámara...</p>
               <p className="text-sm">Esperando permisos y configuración</p>
             </div>
           </div>
         ) : (
-          <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+          <div className="w-full h-64 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
             <div className="text-center text-gray-500">
-              <Camera className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+              <Camera className="h-16 w-16 mx-auto mb-4 text-gray-300" />
               <p className="text-lg font-medium mb-2">Cámara No Activa</p>
               <p className="text-sm">Haz clic en "Iniciar Cámara" para comenzar</p>
             </div>
@@ -933,13 +985,23 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
             <button
               onClick={detectText}
               disabled={isDetecting}
-              className={`px-6 py-3 rounded-full font-medium transition-colors shadow-lg ${
+              className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all shadow-lg mx-auto ${
                 isDetecting
                   ? 'bg-gray-400 text-white cursor-not-allowed'
-                  : 'bg-purple-600 text-white hover:bg-purple-700'
+                  : 'bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800'
               }`}
             >
-              {isDetecting ? 'Procesando...' : '🤖 Procesar Imagen con IA'}
+              {isDetecting ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  <Eye className="h-5 w-5" />
+                  Procesar Imagen con IA
+                </>
+              )}
             </button>
             <p className="text-sm text-gray-600 mt-2">
               Imagen subida lista para procesar
@@ -948,8 +1010,11 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
         )}
 
       {/* Instrucciones mejoradas */}
-      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-medium text-blue-900 mb-3">📋 Instrucciones de Uso</h4>
+      <div className="mt-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
+        <h4 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
+          <CheckCircle className="h-5 w-5 text-blue-600" />
+          Instrucciones de Uso
+        </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
           <div className="space-y-2">
             <div className="flex items-center">
@@ -989,13 +1054,16 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
 
       {/* Modal de Subida de Archivos */}
       {showUpload && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 border border-gray-200">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">📁 Subir Imagen</h3>
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Upload className="h-5 w-5 text-blue-600" />
+                Subir Imagen
+              </h3>
               <button
                 onClick={() => setShowUpload(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1007,11 +1075,11 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
               </p>
               
               <div 
-                className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors"
+                className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-all bg-gradient-to-br from-gray-50 to-gray-100"
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
               >
-                <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <Upload className="h-16 w-16 mx-auto mb-4 text-gray-400" />
                 <input
                   type="file"
                   accept="image/*"
@@ -1021,11 +1089,12 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
                 />
                 <label
                   htmlFor="image-upload"
-                  className="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  className="cursor-pointer inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg"
                 >
+                  <Upload className="h-4 w-4" />
                   Seleccionar Imagen
                 </label>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-gray-500 mt-3">
                   O arrastra y suelta una imagen aquí
                 </p>
               </div>
@@ -1034,8 +1103,9 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onTextDetected, onErr
             <div className="flex space-x-3">
               <button
                 onClick={() => setShowUpload(false)}
-                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
               >
+                <X className="h-4 w-4" />
                 Cancelar
               </button>
             </div>

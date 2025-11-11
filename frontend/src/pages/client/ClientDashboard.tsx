@@ -10,7 +10,11 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  MapPin
+  MapPin,
+  RefreshCw,
+  DollarSign,
+  XCircle,
+  Loader2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -21,6 +25,7 @@ const ClientDashboard: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [parkingStats, setParkingStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (user && user.role !== 'client') {
@@ -31,9 +36,13 @@ const ClientDashboard: React.FC = () => {
     fetchDashboardData();
   }, [user, navigate]);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       
       // Verificar autenticación primero
       const userResponse = await api.auth.me();
@@ -62,6 +71,7 @@ const ClientDashboard: React.FC = () => {
       }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -115,11 +125,16 @@ const ClientDashboard: React.FC = () => {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Mi Dashboard</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Mi Dashboard</h1>
+          <p className="text-gray-600 mt-1">Gestiona tus reservas y vehículos</p>
+        </div>
         <button
-          onClick={fetchDashboardData}
-          className="btn-primary"
+          onClick={() => fetchDashboardData(true)}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           Actualizar
         </button>
       </div>
@@ -163,7 +178,17 @@ const ClientDashboard: React.FC = () => {
                   <div>
                     <p className="text-sm text-gray-500">Inicio</p>
                     <p className="font-medium">
-                      {new Date(activeReservation.startTime).toLocaleString()}
+                      {new Date(activeReservation.startTime).toLocaleDateString('es-CO', { 
+                        day: '2-digit', 
+                        month: 'short',
+                        year: 'numeric'
+                      })}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(activeReservation.startTime).toLocaleTimeString('es-CO', { 
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </p>
                   </div>
                 </div>
@@ -174,18 +199,34 @@ const ClientDashboard: React.FC = () => {
                   <Clock className="h-5 w-5 text-gray-400 mr-3" />
                   <div>
                     <p className="text-sm text-gray-500">Fin Programado</p>
-                    <p className="font-medium">
-                      {activeReservation.endTime ? new Date(activeReservation.endTime).toLocaleString() : 'En curso'}
-                    </p>
+                    {activeReservation.endTime ? (
+                      <>
+                        <p className="font-medium">
+                          {new Date(activeReservation.endTime).toLocaleDateString('es-CO', { 
+                            day: '2-digit', 
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(activeReservation.endTime).toLocaleTimeString('es-CO', { 
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="font-medium text-blue-600">En curso</p>
+                    )}
                   </div>
                 </div>
                 
                 <div className="flex items-center">
-                  <Calendar className="h-5 w-5 text-gray-400 mr-3" />
+                  <DollarSign className="h-5 w-5 text-gray-400 mr-3" />
                   <div>
                     <p className="text-sm text-gray-500">Monto Total</p>
                     <p className="font-medium text-lg text-green-600">
-                      ${activeReservation.totalAmount}
+                      ${typeof activeReservation.totalAmount === 'number' ? activeReservation.totalAmount.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : activeReservation.totalAmount}
                     </p>
                   </div>
                 </div>
@@ -206,14 +247,16 @@ const ClientDashboard: React.FC = () => {
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 onClick={handleCancelReservation}
-                className="btn-danger"
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
+                <XCircle className="h-4 w-4" />
                 Cancelar Reserva
               </button>
               <button
                 onClick={handleCompleteReservation}
-                className="btn-primary"
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
+                <CheckCircle className="h-4 w-4" />
                 Completar Reserva
               </button>
             </div>
@@ -241,22 +284,26 @@ const ClientDashboard: React.FC = () => {
 
       {/* Quick Stats and Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg shadow border border-blue-200">
           <div className="flex items-center">
-            <Car className="h-8 w-8 text-blue-600" />
+            <div className="p-2 bg-blue-600 rounded-lg">
+              <Car className="h-6 w-6 text-white" />
+            </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Mis Vehículos</p>
+              <p className="text-sm font-medium text-gray-600">Mis Vehículos</p>
               <p className="text-2xl font-semibold text-gray-900">{vehicles.length}</p>
               <p className="text-xs text-gray-500">de 3 máximo</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg shadow border border-green-200">
           <div className="flex items-center">
-            <MapPin className="h-8 w-8 text-green-600" />
+            <div className="p-2 bg-green-600 rounded-lg">
+              <MapPin className="h-6 w-6 text-white" />
+            </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Espacios Disponibles</p>
+              <p className="text-sm font-medium text-gray-600">Espacios Disponibles</p>
               <p className="text-2xl font-semibold text-gray-900">
                 {parkingStats?.available || 0}
               </p>
@@ -264,11 +311,13 @@ const ClientDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg shadow border border-purple-200">
           <div className="flex items-center">
-            <Calendar className="h-8 w-8 text-purple-600" />
+            <div className="p-2 bg-purple-600 rounded-lg">
+              <Calendar className="h-6 w-6 text-white" />
+            </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Reserva Activa</p>
+              <p className="text-sm font-medium text-gray-600">Reserva Activa</p>
               <p className="text-2xl font-semibold text-gray-900">
                 {activeReservation ? '1' : '0'}
               </p>
@@ -276,11 +325,13 @@ const ClientDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg shadow border border-green-200">
           <div className="flex items-center">
-            <CheckCircle className="h-8 w-8 text-green-600" />
+            <div className="p-2 bg-green-600 rounded-lg">
+              <CheckCircle className="h-6 w-6 text-white" />
+            </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Estado</p>
+              <p className="text-sm font-medium text-gray-600">Estado</p>
               <p className="text-sm font-semibold text-gray-900">
                 {activeReservation ? 'Con Reserva' : 'Sin Reserva'}
               </p>
@@ -301,15 +352,17 @@ const ClientDashboard: React.FC = () => {
           </p>
           <button
             onClick={() => navigate('/client/vehicles')}
-            className="btn-primary w-full"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Ver Vehículos
           </button>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-100">
           <div className="flex items-center mb-4">
-            <Calendar className="h-8 w-8 text-purple-600 mr-3" />
+            <div className="p-2 bg-purple-100 rounded-lg mr-3">
+              <Calendar className="h-6 w-6 text-purple-600" />
+            </div>
             <h3 className="text-lg font-semibold text-gray-900">Mis Reservas</h3>
           </div>
           <p className="text-gray-500 mb-4">
@@ -317,15 +370,17 @@ const ClientDashboard: React.FC = () => {
           </p>
           <button
             onClick={() => navigate('/client/reservations')}
-            className="btn-primary w-full"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
           >
             Ver Historial
           </button>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-100">
           <div className="flex items-center mb-4">
-            <Plus className="h-8 w-8 text-green-600 mr-3" />
+            <div className="p-2 bg-green-100 rounded-lg mr-3">
+              <Plus className="h-6 w-6 text-green-600" />
+            </div>
             <h3 className="text-lg font-semibold text-gray-900">Nueva Reserva</h3>
           </div>
           <p className="text-gray-500 mb-4">
@@ -333,8 +388,9 @@ const ClientDashboard: React.FC = () => {
           </p>
           <button
             onClick={() => navigate('/map')}
-            className="btn-primary w-full"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
+            <Plus className="h-4 w-4" />
             Crear Reserva
           </button>
         </div>

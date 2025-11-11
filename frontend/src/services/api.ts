@@ -98,6 +98,16 @@ export const api = {
     getImage: (filename: string) => `${API_BASE_URL}/lpr/images/${filename}`,
     createRecord: (data: any) => authApi.post('/lpr/records', data),
     getRecords: (params?: any) => authApi.get('/lpr/records', { params }),
+    recognizePlate: (formData: FormData) => {
+      // Usar axios directamente para FormData
+      const token = localStorage.getItem('token');
+      return axios.post(`${API_BASE_URL}/lpr/recognize`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+    },
   },
 
   // Payments
@@ -162,5 +172,11 @@ export const api = {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     },
+  },
+
+  // Contact
+  contact: {
+    send: (data: { name: string; email: string; subject: string; message: string; devMode?: boolean }) =>
+      authApi.post('/contact', data),
   },
 };

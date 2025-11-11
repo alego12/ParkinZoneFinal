@@ -5,6 +5,8 @@ import path from 'path';
 import fs from 'fs';
 import sharp from 'sharp';
 import Jimp from 'jimp';
+import axios from 'axios';
+import FormData from 'form-data';
 import { Op } from 'sequelize';
 import { LPRRecord } from '../models/LPRRecord';
 import { Vehicle } from '../models/Vehicle';
@@ -42,6 +44,224 @@ const upload = multer({
     } else {
       cb(new Error('Only image files are allowed'));
     }
+  }
+});
+
+// Recognize plate from image (for camera modal - returns only plate number)
+router.post('/recognize', authenticateToken, upload.single('image'), async (req: Request, res: Response) => {
+  let tempFilePath: string | null = null;
+  
+  try {
+    const file = (req as AuthRequest).file;
+
+    if (!file) {
+      return res.status(400).json({ message: 'No image file provided' });
+    }
+
+    tempFilePath = file.path;
+    const rekorApiKey = process.env.REKOR_API_KEY;
+    const rekorCompanyId = process.env.REKOR_COMPANY_ID;
+    // Rekor puede usar diferentes endpoints:
+    // - OpenALPR: https://api.openalpr.com/v2/recognize (requiere secret_key de OpenALPR)
+    // - Rekor CarCheck: https://api.rekor.ai/v1/carcheck (requiere API key de Rekor)
+    // - Rekor Scout: https://api.openalpr.com/v2/recognize (usa el mismo endpoint que OpenALPR)
+    // NOTA: cloud.openalpr.com parece ser solo para la interfaz web, no para la API
+    const rekorApiUrl = process.env.REKOR_API_URL || 'https://api.openalpr.com/v2/recognize';
+
+    if (!rekorApiKey) {
+      console.warn('REKOR_API_KEY no configurada, usando procesamiento mock');
+      // Fallback a mock si no hay API key
+      const mockPlate = 'ABC123';
+      return res.json({
+        plate: mockPlate,
+        plateNumber: mockPlate,
+        confidence: 0.95,
+        message: 'Plate recognized (mock - REKOR_API_KEY not configured)'
+      });
+    }
+
+    // Optimizar imagen antes de enviar a Rekor
+    const processedImagePath = path.join(
+      path.dirname(file.path),
+      'processed-' + path.basename(file.path)
+    );
+
+    await sharp(file.path)
+      .resize(1920, 1080, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 90 })
+      .toFile(processedImagePath);
+
+    // Preparar FormData para enviar a Rekor
+    const formData = new FormData();
+    formData.append('image', fs.createReadStream(processedImagePath));
+    
+    // Determinar el formato según el endpoint
+    const isRekorCarCheck = rekorApiUrl.includes('rekor.ai') || rekorApiUrl.includes('carcheck');
+    const isOpenALPR = rekorApiUrl.includes('openalpr.com');
+    
+    let urlWithKey: string;
+    let headers: any = {
+      ...formData.getHeaders(),
+    };
+
+    if (isRekorCarCheck) {
+      // Formato Rekor CarCheck - API key en header
+      formData.append('country', 'co'); // Colombia
+      headers['Authorization'] = `Bearer ${rekorApiKey}`;
+      if (rekorCompanyId) {
+        headers['X-Company-ID'] = rekorCompanyId;
+      }
+      urlWithKey = rekorApiUrl;
+    } else if (isOpenALPR) {
+      // Formato OpenALPR/Scout - secret_key como parámetro de consulta
+      formData.append('country', 'co');
+      formData.append('recognize_vehicle', '1');
+      formData.append('return_image', '0');
+      
+      // Construir URL con secret_key y opcionalmente company_id
+      let queryParams = `secret_key=${encodeURIComponent(rekorApiKey)}`;
+      if (rekorCompanyId) {
+        queryParams += `&company_id=${encodeURIComponent(rekorCompanyId)}`;
+      }
+      urlWithKey = `${rekorApiUrl}?${queryParams}`;
+      
+      // También agregar Company ID en header si está disponible
+      if (rekorCompanyId) {
+        headers['X-Company-ID'] = rekorCompanyId;
+      }
+    } else {
+      // Formato genérico - intentar con secret_key como parámetro
+      formData.append('country', 'co');
+      let queryParams = `secret_key=${encodeURIComponent(rekorApiKey)}`;
+      if (rekorCompanyId) {
+        queryParams += `&company_id=${encodeURIComponent(rekorCompanyId)}`;
+        headers['X-Company-ID'] = rekorCompanyId;
+      }
+      urlWithKey = `${rekorApiUrl}?${queryParams}`;
+    }
+
+    console.log('🔍 Enviando imagen a Rekor API...');
+    console.log('📍 URL:', urlWithKey.replace(rekorApiKey, '***').replace(rekorCompanyId || '', '***'));
+    console.log('🔑 Método de autenticación:', isRekorCarCheck ? 'Bearer Token (Header)' : 'Query Parameter');
+    if (rekorCompanyId) {
+      console.log('🏢 Company ID:', rekorCompanyId.substring(0, 8) + '...');
+    }
+
+    // Llamar a la API de Rekor
+    const rekorResponse = await axios.post(urlWithKey, formData, {
+      headers,
+      timeout: 30000, // 30 segundos timeout
+    });
+
+    console.log('✅ Respuesta de Rekor:', JSON.stringify(rekorResponse.data, null, 2));
+
+    // Extraer la placa de la respuesta
+    // La estructura puede variar, intentamos diferentes formatos comunes
+    let detectedPlate: string | null = null;
+    let confidence: number = 0;
+
+    if (rekorResponse.data?.results && rekorResponse.data.results.length > 0) {
+      // Formato OpenALPR estándar
+      const bestResult = rekorResponse.data.results[0];
+      detectedPlate = bestResult.plate || bestResult.plate_number;
+      confidence = bestResult.confidence || bestResult.confidence_score || 0;
+    } else if (rekorResponse.data?.plate) {
+      // Formato alternativo
+      detectedPlate = rekorResponse.data.plate;
+      confidence = rekorResponse.data.confidence || 0.95;
+    } else if (rekorResponse.data?.data?.plate) {
+      // Formato anidado
+      detectedPlate = rekorResponse.data.data.plate;
+      confidence = rekorResponse.data.data.confidence || 0.95;
+    }
+
+    // Limpiar archivos temporales
+    try {
+      if (fs.existsSync(tempFilePath)) {
+        fs.unlinkSync(tempFilePath);
+      }
+      if (fs.existsSync(processedImagePath)) {
+        fs.unlinkSync(processedImagePath);
+      }
+    } catch (cleanupError) {
+      console.warn('Error cleaning up temp files:', cleanupError);
+    }
+
+    if (!detectedPlate) {
+      console.warn('⚠️ No se detectó placa en la respuesta de Rekor');
+      return res.status(400).json({
+        message: 'No se pudo detectar una placa en la imagen. Intenta con otra foto.',
+        rekorResponse: rekorResponse.data // Incluir respuesta para debugging
+      });
+    }
+
+    // Limpiar la placa (remover espacios, guiones, etc.)
+    const cleanPlate = detectedPlate.replace(/[\s\-_]/g, '').toUpperCase();
+
+    console.log(`✅ Placa detectada: ${cleanPlate} (confianza: ${confidence})`);
+
+    res.json({
+      plate: cleanPlate,
+      plateNumber: cleanPlate, // Alias para compatibilidad
+      confidence: confidence,
+      message: 'Plate recognized successfully'
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error procesando imagen para reconocimiento de placa:', error);
+    
+    // Limpiar archivos temporales en caso de error
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (e) {
+        console.warn('Error limpiando archivo temporal:', e);
+      }
+    }
+
+    // Proporcionar mensajes de error más específicos
+    let errorMessage = 'Error al procesar la imagen para reconocimiento de placa';
+    let statusCode = 500;
+    
+    if (error.response) {
+      // Error de la API de Rekor
+      statusCode = error.response.status || 500;
+      const responseData = error.response.data;
+      
+      console.error('❌ Respuesta de error de Rekor:');
+      console.error('   Status:', statusCode);
+      console.error('   Data:', typeof responseData === 'string' ? responseData : JSON.stringify(responseData, null, 2));
+      console.error('   Headers:', error.response.headers);
+      
+      if (statusCode === 404) {
+        errorMessage = 'Endpoint no encontrado (404). Verifica que la URL de la API sea correcta. El endpoint correcto es: https://api.openalpr.com/v2/recognize';
+      } else if (statusCode === 403) {
+        errorMessage = 'Acceso denegado (403). Verifica que tu API key de Rekor sea válida y esté correctamente configurada.';
+      } else if (statusCode === 401) {
+        errorMessage = 'No autorizado (401). Verifica tu API key y Company ID de Rekor.';
+      } else if (statusCode === 400) {
+        errorMessage = `Solicitud inválida (400): ${typeof responseData === 'object' && responseData?.message ? responseData.message : 'Verifica el formato de la imagen'}`;
+      } else {
+        errorMessage = `Error de Rekor API (${statusCode}): ${typeof responseData === 'object' && responseData?.message ? responseData.message : error.response.statusText}`;
+      }
+    } else if (error.request) {
+      // No se recibió respuesta
+      errorMessage = 'No se pudo conectar con el servicio de reconocimiento de placas. Verifica tu conexión y que el endpoint sea correcto.';
+    } else if (error.code === 'ECONNABORTED') {
+      errorMessage = 'Tiempo de espera agotado. La imagen puede ser muy grande o el servicio está lento.';
+    }
+
+    res.status(statusCode).json({ 
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      ...(process.env.NODE_ENV === 'development' && error.response ? {
+        debug: {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data
+        }
+      } : {})
+    });
   }
 });
 
