@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import { Vehicle } from '../../types';
-import { Plus, Edit, Trash2, Car, RefreshCw, Loader2, X, Save, Bike, CheckCircle, Shield, Calendar } from 'lucide-react';
+import { Plus, Edit, Trash2, Car, RefreshCw, Loader2, X, Save, Bike, CheckCircle, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Vehicles: React.FC = () => {

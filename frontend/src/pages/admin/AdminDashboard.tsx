@@ -10,19 +10,14 @@ import {
   Eye,
   RefreshCw,
   Calendar,
-  Clock,
   Loader2,
-  Shield,
-  AlertTriangle,
-  CheckCircle,
-  XCircle
+  Shield
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentReservations, setRecentReservations] = useState<Reservation[]>([]);
-  const [recentLPRRecords, setRecentLPRRecords] = useState<LPRRecord[]>([]);
   const [todayLPRRecords, setTodayLPRRecords] = useState<LPRRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingLPR, setLoadingLPR] = useState(false);
@@ -37,9 +32,8 @@ const AdminDashboard: React.FC = () => {
       setLoading(true);
       const response = await api.admin.getDashboard();
       
-      setStats(response.data.statistics);
-      setRecentReservations(response.data.recentReservations || []);
-      setRecentLPRRecords(response.data.recentLPRRecords || []);
+          setStats(response.data.statistics);
+          setRecentReservations(response.data.recentReservations || []);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       toast.error('Error al cargar los datos del dashboard');

@@ -517,7 +517,6 @@ const LPRManagement: React.FC = () => {
       'black': '#000000',
       'gris': '#808080',
       'gray': '#808080',
-      'gris': '#808080',
       'rojo': '#FF0000',
       'roja': '#FF0000',
       'red': '#FF0000',
@@ -534,7 +533,6 @@ const LPRManagement: React.FC = () => {
       'orange': '#FFA500',
       'marrón': '#8B4513',
       'brown': '#8B4513',
-      'marrón': '#8B4513',
     };
     
     const normalizedColor = colorName.toLowerCase().trim();

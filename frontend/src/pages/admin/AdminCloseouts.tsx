@@ -67,7 +67,6 @@ const AdminCloseouts: React.FC = () => {
 
   const [detail, setDetail] = useState<any | null>(null);
   const [users, setUsers] = useState<any[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
 
   // Mapa de IDs de usuario a nombres
   const userMap = useMemo(() => {
@@ -85,13 +84,10 @@ const AdminCloseouts: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      setLoadingUsers(true);
       const res = await api.admin.getUsers();
       setUsers(res.data.users || []);
     } catch (e) {
       console.error('Fetch users error', e);
-    } finally {
-      setLoadingUsers(false);
     }
   };
 
@@ -528,7 +524,7 @@ const AdminCloseouts: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {detail.payments?.map((p: any, index: number) => (
+                      {detail.payments?.map((p: any) => (
                         <tr key={p.id} className="hover:bg-gray-50">
                           <td className="px-3 py-2 text-sm text-gray-900">#{p.id}</td>
                           <td className="px-3 py-2 text-sm text-gray-900">

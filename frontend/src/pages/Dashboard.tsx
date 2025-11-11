@@ -22,7 +22,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { translateVehicleType, translateSpaceStatus, translateVehicleTypeShort } from '../utils/translations';
+import { translateVehicleType, translateSpaceStatus } from '../utils/translations';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -479,7 +479,6 @@ const Dashboard: React.FC = () => {
     const availableSpaces = spaces.filter(s => s.status === 'available').length;
     const occupiedSpaces = spaces.filter(s => s.status === 'occupied').length;
     const maintenanceSpaces = spaces.filter(s => s.status === 'maintenance').length;
-    const reservedSpaces = spaces.filter(s => s.status === 'reserved').length;
     const occupancyRate = totalSpaces > 0 ? Math.round((occupiedSpaces / totalSpaces) * 100) : 0;
 
     return (
@@ -602,7 +601,6 @@ const Dashboard: React.FC = () => {
     const availableSpaces = spaces.filter(s => s.status === 'available').length;
     const occupiedSpaces = spaces.filter(s => s.status === 'occupied').length;
     const maintenanceSpaces = spaces.filter(s => s.status === 'maintenance').length;
-    const reservedSpaces = spaces.filter(s => s.status === 'reserved').length;
     const occupancyRate = totalSpaces > 0 ? Math.round((occupiedSpaces / totalSpaces) * 100) : 0;
 
     return (

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import { ParkingSpace } from '../../types';
-import { MapPin, Clock, Car, Bike, RefreshCw, Search, X, Loader2, DollarSign, Shield } from 'lucide-react';
+import { MapPin, Clock, Car, Bike, RefreshCw, Search, X, Loader2, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SpaceDetailModal from '../../components/SpaceDetailModal';
 

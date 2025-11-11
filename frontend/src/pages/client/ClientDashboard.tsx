@@ -13,8 +13,7 @@ import {
   MapPin,
   RefreshCw,
   DollarSign,
-  XCircle,
-  Loader2
+  XCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 

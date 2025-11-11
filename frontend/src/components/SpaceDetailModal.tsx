@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { ParkingSpace, Reservation, Schedule } from '../types';
-import { X, MapPin, Clock, Car, User, Phone, Calendar, DollarSign, Unlock, AlertTriangle, QrCode, CreditCard, Banknote, Bike, Loader2, CheckCircle, Mail } from 'lucide-react';
+import { X, MapPin, Clock, Car, User, Phone, Calendar, DollarSign, Unlock, AlertTriangle, QrCode, CreditCard, Banknote, Bike, Loader2, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { translateVehicleType, translateVehicleTypeShort } from '../utils/translations';
 

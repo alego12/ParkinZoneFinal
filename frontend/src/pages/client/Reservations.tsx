@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import { Reservation } from '../../types';
-import { Calendar, Clock, MapPin, Car, CheckCircle, XCircle, AlertCircle, RefreshCw, DollarSign, Loader2, Bike, Shield } from 'lucide-react';
+import { Calendar, Clock, MapPin, Car, CheckCircle, XCircle, AlertCircle, RefreshCw, DollarSign, Loader2, Bike } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Reservations: React.FC = () => {

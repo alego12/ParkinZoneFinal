@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
-import { Calendar, DollarSign, CreditCard, QrCode, Banknote, Search, X, RefreshCw, ChevronLeft, ChevronRight, User, Loader2, Shield, CheckCircle } from 'lucide-react';
+import { Calendar, DollarSign, CreditCard, QrCode, Banknote, Search, X, ChevronLeft, ChevronRight, User, Loader2, Shield, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 type Method = 'cash' | 'qr' | 'card';

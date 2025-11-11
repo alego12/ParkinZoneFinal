@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, CheckCircle, Python, Zap, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle, Code, Zap, AlertCircle } from 'lucide-react';
 
 interface PythonOCRProps {
   imageData: string;
@@ -355,7 +355,7 @@ extract_plate_text_python('${detectResult.processed_image}')
           </div>
           <div>
             <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Python className="h-5 w-5 text-blue-600" />
+              <Code className="h-5 w-5 text-blue-600" />
               Python OCR
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -445,7 +445,7 @@ extract_plate_text_python('${detectResult.processed_image}')
             </>
           ) : (
             <>
-              <Python className="h-4 w-4" />
+              <Code className="h-4 w-4" />
               <span>Procesar con Python OCR</span>
             </>
           )}

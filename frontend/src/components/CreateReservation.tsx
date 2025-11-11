@@ -179,11 +179,6 @@ const CreateReservation: React.FC<CreateReservationProps> = ({
     }
   };
 
-  const getVehicleIcon = (type: string) => {
-    // Icon is handled by lucide-react icons in the component
-    return '';
-  };
-
   const getVehicleTypeLabel = (type: string) => {
     return translateVehicleTypeShort(type);
   };
