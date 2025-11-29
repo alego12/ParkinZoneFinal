@@ -21,9 +21,12 @@ const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
   const [error, setError] = useState('');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [mode, setMode] = useState<'camera' | 'upload'>('camera');
+  const [autoDetecting, setAutoDetecting] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const autoDetectIntervalRef = useRef<number | null>(null);
+  const initTimeoutRef = useRef<number | null>(null);
 
   // Iniciar la cámara cuando el modal se abre
   useEffect(() => {
@@ -31,10 +34,12 @@ const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
       startCamera();
     } else {
       stopCamera();
+      stopAutoDetection();
     }
 
     return () => {
       stopCamera();
+      stopAutoDetection();
     };
   }, [isOpen, mode]);
 
@@ -54,6 +59,13 @@ const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
         videoRef.current.srcObject = mediaStream;
       }
       setError('');
+
+      // Esperar 10 segundos antes de iniciar la detección automática
+      toast.success('Cámara iniciada. Detección automática comenzará en 10 segundos...');
+      initTimeoutRef.current = window.setTimeout(() => {
+        startAutoDetection();
+      }, 10000);
+
     } catch (err) {
       console.error('Error accessing camera:', err);
       setError('No se pudo acceder a la cámara');
@@ -65,6 +77,67 @@ const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
+    }
+  };
+
+  const startAutoDetection = () => {
+    setAutoDetecting(true);
+    toast.success('Detección automática activada. Analizando frames cada 3 segundos...');
+
+    // Capturar y detectar cada 3 segundos
+    autoDetectIntervalRef.current = window.setInterval(async () => {
+      if (!processing && videoRef.current && !capturedImage) {
+        await automaticCaptureAndDetect();
+      }
+    }, 3000);
+  };
+
+  const stopAutoDetection = () => {
+    setAutoDetecting(false);
+
+    if (autoDetectIntervalRef.current) {
+      clearInterval(autoDetectIntervalRef.current);
+      autoDetectIntervalRef.current = null;
+    }
+
+    if (initTimeoutRef.current) {
+      clearTimeout(initTimeoutRef.current);
+      initTimeoutRef.current = null;
+    }
+  };
+
+  const automaticCaptureAndDetect = async () => {
+    if (!videoRef.current) return;
+
+    try {
+      // Capturar imagen desde el video
+      const imageBase64 = roboflowService.captureFromVideo(videoRef.current);
+
+      // Enviar a Roboflow para detección (sin mostrar mensajes de toast)
+      const result = await roboflowService.detectPlate(imageBase64);
+
+      if (result.plateText) {
+        // Si se detecta una placa, detener la detección automática
+        stopAutoDetection();
+
+        // Mostrar la imagen capturada
+        setCapturedImage(`data:image/jpeg;base64,${imageBase64}`);
+        setDetectedPlate(result.plateText.toUpperCase());
+        setConfidence(result.confidence);
+
+        toast.success(`¡Placa detectada automáticamente: ${result.plateText.toUpperCase()}!`, {
+          duration: 4000
+        });
+
+        // Enviar automáticamente la placa detectada
+        setTimeout(() => {
+          onPlateDetected(result.plateText.toUpperCase());
+          handleClose();
+        }, 2000); // Dar 2 segundos para que el usuario vea el resultado
+      }
+    } catch (err) {
+      // Silenciosamente continuar si no se detecta nada
+      console.log('No se detectó placa en este frame, continuando...');
     }
   };
 
@@ -266,6 +339,14 @@ const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
                   muted
                   className="w-full h-full object-cover"
                 />
+
+                {/* Auto-detection status indicator */}
+                {autoDetecting && (
+                  <div className="absolute top-4 left-4 right-4 bg-green-500/90 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 pointer-events-none animate-pulse">
+                    <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>
+                    <span className="font-semibold">Detección automática activa...</span>
+                  </div>
+                )}
 
                 {/* Overlay guide */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
