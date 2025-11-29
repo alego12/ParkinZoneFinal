@@ -1,299 +1,409 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Camera, CameraOff, X, Upload, Loader2 } from 'lucide-react';
-import { api } from '../services/api';
+import { useRef, useState, useEffect } from 'react';
+import { Camera, X, Loader2, CheckCircle, AlertCircle, Upload } from 'lucide-react';
+import { roboflowService } from '../services/roboflowService';
+import toast from 'react-hot-toast';
 
 interface LPRCameraModalProps {
   isOpen: boolean;
   onClose: () => void;
   onPlateDetected: (plate: string) => void;
-  onError: (error: string) => void;
 }
 
 const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
   isOpen,
   onClose,
-  onPlateDetected,
-  onError
+  onPlateDetected
 }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isActive, setIsActive] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [detectedPlate, setDetectedPlate] = useState('');
+  const [confidence, setConfidence] = useState(0);
+  const [error, setError] = useState('');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [detectedPlate, setDetectedPlate] = useState<string | null>(null);
+  const [mode, setMode] = useState<'camera' | 'upload'>('camera');
 
-  // Limpiar al cerrar el modal
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Iniciar la cámara cuando el modal se abre
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen && mode === 'camera') {
+      startCamera();
+    } else {
       stopCamera();
-      setCapturedImage(null);
-      setDetectedPlate(null);
     }
-  }, [isOpen]);
 
-  // Iniciar cámara
+    return () => {
+      stopCamera();
+    };
+  }, [isOpen, mode]);
+
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
           width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'environment' // Preferir cámara trasera en móviles
-        } 
+          height: { ideal: 720 }
+        }
       });
-      
+
+      setStream(mediaStream);
+
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setIsActive(true);
+        videoRef.current.srcObject = mediaStream;
       }
-    } catch (error) {
-      console.error('Error accediendo a la cámara:', error);
-      onError('Error al acceder a la cámara. Por favor, verifica los permisos.');
+      setError('');
+    } catch (err) {
+      console.error('Error accessing camera:', err);
+      setError('No se pudo acceder a la cámara');
+      toast.error('Error al acceder a la cámara. Intenta subir una imagen.');
     }
   };
 
-  // Detener cámara
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
+    if (stream) {
       stream.getTracks().forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-      setIsActive(false);
+      setStream(null);
     }
   };
 
-  // Capturar imagen desde video
-  const captureImage = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+  const captureAndDetect = async () => {
+    if (!videoRef.current) {
+      toast.error('La cámara no está lista');
+      return;
+    }
 
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
+    setProcessing(true);
+    setError('');
 
-    if (!context) return;
+    try {
+      // 1. Capturar imagen desde el video
+      const imageBase64 = roboflowService.captureFromVideo(videoRef.current);
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    const imageData = canvas.toDataURL('image/jpeg', 0.9);
-    setCapturedImage(imageData);
-    
-    // Procesar imagen automáticamente
-    processImageForLPR(imageData);
+      // 2. Mostrar la imagen capturada
+      setCapturedImage(`data:image/jpeg;base64,${imageBase64}`);
+
+      // 3. Enviar a Roboflow para detección
+      toast.loading('Detectando placa...', { id: 'roboflow-detect' });
+
+      const result = await roboflowService.detectPlate(imageBase64);
+
+      toast.dismiss('roboflow-detect');
+
+      if (!result.plateText) {
+        toast.error('No se detectó ninguna placa en la imagen');
+        setError('No se detectó ninguna placa. Intenta de nuevo con mejor iluminación.');
+        setCapturedImage(null);
+        return;
+      }
+
+      // 4. Mostrar resultado
+      setDetectedPlate(result.plateText.toUpperCase());
+      setConfidence(result.confidence);
+
+      toast.success(`Placa detectada: ${result.plateText.toUpperCase()}`);
+
+    } catch (err) {
+      console.error('Error detecting plate:', err);
+      setError('Error al detectar la placa. Por favor, intenta de nuevo.');
+      toast.error('Error al detectar la placa');
+      setCapturedImage(null);
+    } finally {
+      setProcessing(false);
+    }
   };
 
-  // Manejar carga de archivo
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      onError('Por favor, selecciona un archivo de imagen válido');
+      toast.error('Por favor, selecciona un archivo de imagen válido');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const imageData = e.target?.result as string;
-      setCapturedImage(imageData);
-      processImageForLPR(imageData);
-    };
-    reader.onerror = () => {
-      onError('Error al leer el archivo de imagen');
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Procesar imagen con servicio de reconocimiento de placas
-  const processImageForLPR = async (imageData: string) => {
-    setIsProcessing(true);
-    setDetectedPlate(null);
+    setProcessing(true);
+    setError('');
 
     try {
-      // Convertir base64 a Blob
-      const response = await fetch(imageData);
-      const blob = await response.blob();
-      
-      // Crear FormData para enviar la imagen
-      const formData = new FormData();
-      formData.append('image', blob, 'plate-image.jpg');
+      // 1. Convertir archivo a base64
+      const imageBase64 = await roboflowService.fileToBase64(file);
 
-      // Llamar al servicio de reconocimiento de placas
-      const result = await api.lpr.recognizePlate(formData);
-      
-      const plate = result.data?.plate || result.data?.plateNumber;
-      
-      if (plate) {
-        const cleanPlate = plate.trim().toUpperCase();
-        setDetectedPlate(cleanPlate);
-        // Auto-cerrar después de un breve delay y pasar la placa
-        setTimeout(() => {
-          onPlateDetected(cleanPlate);
-          onClose();
-        }, 1000);
-      } else {
-        onError('No se pudo detectar una placa en la imagen. Intenta con otra foto.');
+      // 2. Mostrar preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setCapturedImage(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      // 3. Enviar a Roboflow
+      toast.loading('Detectando placa...', { id: 'roboflow-detect' });
+
+      const result = await roboflowService.detectPlate(imageBase64);
+
+      toast.dismiss('roboflow-detect');
+
+      if (!result.plateText) {
+        toast.error('No se detectó ninguna placa en la imagen');
+        setError('No se detectó ninguna placa. Intenta con otra imagen.');
+        setCapturedImage(null);
+        return;
       }
-    } catch (error: any) {
-      console.error('Error procesando imagen para LPR:', error);
-      const errorMessage = error.response?.data?.message || 
-                          error.message || 
-                          'Error al procesar la imagen. Verifica la conexión con el servicio.';
-      onError(errorMessage);
+
+      // 4. Mostrar resultado
+      setDetectedPlate(result.plateText.toUpperCase());
+      setConfidence(result.confidence);
+
+      toast.success(`Placa detectada: ${result.plateText.toUpperCase()}`);
+
+    } catch (err) {
+      console.error('Error detecting plate from file:', err);
+      setError('Error al procesar la imagen. Por favor, intenta de nuevo.');
+      toast.error('Error al procesar la imagen');
+      setCapturedImage(null);
     } finally {
-      setIsProcessing(false);
+      setProcessing(false);
+      if (event.target) {
+        event.target.value = '';
+      }
     }
   };
 
-  // Confirmar placa detectada manualmente
-  const handleConfirmPlate = () => {
-    if (detectedPlate) {
-      onPlateDetected(detectedPlate);
-      onClose();
+  const confirmPlate = () => {
+    if (!detectedPlate.trim()) {
+      toast.error('No hay placa detectada');
+      return;
     }
+
+    onPlateDetected(detectedPlate.trim().toUpperCase());
+    handleClose();
+  };
+
+  const retryCapture = () => {
+    setCapturedImage(null);
+    setDetectedPlate('');
+    setConfidence(0);
+    setError('');
+  };
+
+  const handleClose = () => {
+    setDetectedPlate('');
+    setConfidence(0);
+    setError('');
+    setCapturedImage(null);
+    setMode('camera');
+    stopCamera();
+    onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900">
-            Reconocimiento de Placa por Cámara
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            disabled={isProcessing}
-          >
-            <X className="h-5 w-5 text-gray-600" />
-          </button>
+        <div className="p-6 bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <Camera className="h-6 w-6" />
+              <h2 className="text-2xl font-bold">Reconocimiento Automático de Placas</h2>
+            </div>
+            <button
+              onClick={handleClose}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              disabled={processing}
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
         </div>
 
-        {/* Contenido */}
+        {/* Content */}
         <div className="p-6 space-y-4">
-          {/* Controles de cámara */}
-          <div className="flex flex-wrap gap-3">
-            {!isActive ? (
+          {/* Mode selector */}
+          {!capturedImage && (
+            <div className="flex gap-3 mb-4">
               <button
-                onClick={startCamera}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                disabled={isProcessing}
+                onClick={() => {
+                  setMode('camera');
+                  setError('');
+                }}
+                className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${mode === 'camera'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                disabled={processing}
               >
-                <Camera className="h-4 w-4" />
-                Iniciar Cámara
+                <Camera className="h-5 w-5" />
+                Cámara
               </button>
-            ) : (
-              <>
-                <button
-                  onClick={stopCamera}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  disabled={isProcessing}
-                >
-                  <CameraOff className="h-4 w-4" />
-                  Detener Cámara
-                </button>
-                <button
-                  onClick={captureImage}
-                  disabled={isProcessing}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                >
-                  <Camera className="h-4 w-4" />
-                  Capturar Foto
-                </button>
-              </>
-            )}
-            
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isProcessing}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
-            >
-              <Upload className="h-4 w-4" />
-              Subir Imagen
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              className="hidden"
-              disabled={isProcessing}
-            />
-          </div>
+              <button
+                onClick={() => {
+                  setMode('upload');
+                  setError('');
+                }}
+                className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${mode === 'upload'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                disabled={processing}
+              >
+                <Upload className="h-5 w-5" />
+                Subir Imagen
+              </button>
+            </div>
+          )}
 
-          {/* Video */}
-          {isActive && !capturedImage && (
-            <div className="relative bg-black rounded-lg overflow-hidden">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full max-h-96 object-contain"
+          {/* Camera mode */}
+          {mode === 'camera' && !capturedImage && (
+            <>
+              <div className="relative bg-black rounded-xl overflow-hidden aspect-video">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+
+                {/* Overlay guide */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="border-4 border-dashed border-white/50 rounded-lg w-3/4 h-1/2 flex items-center justify-center">
+                    <p className="text-white font-semibold bg-black/50 px-4 py-2 rounded-lg">
+                      Posiciona la placa aquí
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={captureAndDetect}
+                disabled={processing || !stream}
+                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text white rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed text-lg"
+              >
+                {processing ? (
+                  <>
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                    Detectando...
+                  </>
+                ) : (
+                  <>
+                    <Camera className="h-6 w-6" />
+                    Capturar y Detectar
+                  </>
+                )}
+              </button>
+            </>
+          )}
+
+          {/* Upload mode */}
+          {mode === 'upload' && !capturedImage && (
+            <div className="space-y-4">
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-4 border-dashed border-gray-300 rounded-xl p-12 text-center hover:border-purple-500 hover:bg-purple-50 transition-all cursor-pointer"
+              >
+                <Upload className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-lg font-semibold text-gray-700 mb-2">
+                  Click para subir una imagen
+                </p>
+                <p className="text-sm text-gray-500">
+                  Formatos soportados: JPG, PNG, WEBP
+                </p>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="hidden"
               />
             </div>
           )}
 
-          {/* Imagen capturada */}
-          {capturedImage && (
-            <div className="space-y-4">
-              <div className="relative bg-gray-100 rounded-lg overflow-hidden">
-                <img
-                  src={capturedImage}
-                  alt="Imagen capturada"
-                  className="w-full max-h-96 object-contain mx-auto"
-                />
-                {isProcessing && (
-                  <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                    <div className="text-center text-white">
-                      <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                      <p className="text-sm">Procesando imagen...</p>
-                    </div>
-                  </div>
-                )}
+          {/* Error message */}
+          {error && (
+            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-start gap-3">
+              <AlertCircle className="h-6 w-6 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-red-800">Error</p>
+                <p className="text-sm text-red-600">{error}</p>
               </div>
-
-              {/* Placa detectada */}
-              {detectedPlate && !isProcessing && (
-                <div className="bg-green-50 border-2 border-green-500 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-2">Placa detectada:</p>
-                  <p className="text-2xl font-bold font-mono text-green-700 mb-3">
-                    {detectedPlate}
-                  </p>
-                  <button
-                    onClick={handleConfirmPlate}
-                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    Confirmar y Procesar
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
-          {/* Instrucciones */}
-          {!capturedImage && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          {/* Result display */}
+          {capturedImage && (
+            <div className="space-y-4">
+              <div className="relative rounded-xl overflow-hidden">
+                <img
+                  src={capturedImage}
+                  alt="Captured"
+                  className="w-full object-contain max-h-96"
+                />
+              </div>
+
+              {detectedPlate ? (
+                <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <CheckCircle className="h-8 w-8 text-green-600" />
+                    <div>
+                      <p className="font-semibold text-green-800">Placa detectada exitosamente</p>
+                      <p className="text-sm text-green-600">Confianza: {(confidence * 100).toFixed(1)}%</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Placa detectada (puedes editar si es necesario):
+                      </label>
+                      <input
+                        type="text"
+                        value={detectedPlate}
+                        onChange={(e) => setDetectedPlate(e.target.value.toUpperCase())}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl text-2xl font-bold text-center uppercase tracking-wider focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all"
+                        placeholder="PLACA"
+                      />
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={retryCapture}
+                        className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-all font-semibold"
+                      >
+                        Capturar de Nuevo
+                      </button>
+                      <button
+                        onClick={confirmPlate}
+                        className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl font-semibold flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle className="h-5 w-5" />
+                        Confirmar e Ingresar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {/* Instructions */}
+          {!capturedImage && !error && (
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
               <p className="text-sm text-blue-800">
-                <strong>Instrucciones:</strong> Inicia la cámara o sube una imagen de la placa del vehículo. 
-                El sistema procesará la imagen automáticamente para detectar el número de placa.
+                <span className="font-semibold">Instrucciones:</span>{' '}
+                {mode === 'camera'
+                  ? 'Posiciona la placa del vehículo dentro del recuadro y presiona "Capturar y Detectar". El sistema detectará automáticamente el número de placa.'
+                  : 'Sube una imagen clara de la placa del vehículo. El sistema detectará automáticamente el número de placa.'}
               </p>
             </div>
           )}
         </div>
       </div>
-
-      {/* Canvas oculto para capturar */}
-      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 };
 
 export default LPRCameraModal;
-
