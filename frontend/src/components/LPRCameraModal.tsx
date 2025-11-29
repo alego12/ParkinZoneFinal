@@ -84,6 +84,18 @@ const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
     }
   };
 
+  // Validar formato de placa boliviana: 3 o 4 números seguidos de 3 letras
+  const isValidPlateFormat = (plate: string): boolean => {
+    const cleanPlate = plate.trim().toUpperCase().replace(/\s+/g, '');
+
+    // 1. Validación de longitud (máximo 8 caracteres)
+    if (cleanPlate.length > 8) return false;
+
+    // 2. Validación de patrón (3-4 dígitos + 3 letras)
+    const pattern = /^(\d{3,4})([A-Z]{3})$/;
+    return pattern.test(cleanPlate);
+  };
+
   const startAutoDetection = () => {
     setAutoDetecting(true);
     toast.success('Detección automática activada. Analizando frames cada 3 segundos...');
@@ -121,7 +133,14 @@ const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
       const result = await roboflowService.detectPlate(imageBase64);
 
       if (result.plateText) {
-        // Si se detecta una placa, detener la detección automática
+        // Validar formato de placa antes de procesar
+        if (!isValidPlateFormat(result.plateText)) {
+          console.log(`Texto detectado ignorado (formato inválido): ${result.plateText}`);
+          // No mostramos error al usuario en automático para no ser molestos, solo ignoramos
+          return;
+        }
+
+        // Si se detecta una placa válida, detener la detección automática
         stopAutoDetection();
 
         // Mostrar la imagen capturada
@@ -171,6 +190,14 @@ const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
       if (!result.plateText) {
         toast.error('No se detectó ninguna placa en la imagen');
         setError('No se detectó ninguna placa. Intenta de nuevo con mejor iluminación.');
+        setCapturedImage(null);
+        return;
+      }
+
+      // Validar formato
+      if (!isValidPlateFormat(result.plateText)) {
+        toast.error('El texto detectado no parece una placa válida');
+        setError(`Texto detectado: "${result.plateText}". No cumple el formato de placa (3-4 números + 3 letras).`);
         setCapturedImage(null);
         return;
       }
@@ -225,6 +252,14 @@ const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
       if (!result.plateText) {
         toast.error('No se detectó ninguna placa en la imagen');
         setError('No se detectó ninguna placa. Intenta con otra imagen.');
+        setCapturedImage(null);
+        return;
+      }
+
+      // Validar formato
+      if (!isValidPlateFormat(result.plateText)) {
+        toast.error('El texto detectado no parece una placa válida');
+        setError(`Texto detectado: "${result.plateText}". No cumple el formato de placa (3-4 números + 3 letras).`);
         setCapturedImage(null);
         return;
       }
