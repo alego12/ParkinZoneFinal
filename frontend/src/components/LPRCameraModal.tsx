@@ -84,16 +84,21 @@ const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
     }
   };
 
-  // Validar formato de placa boliviana: 3 o 4 números seguidos de 3 letras
+  // Validar formato de placa boliviana: 3 o 4 números seguidos de 3 letras, O viceversa
   const isValidPlateFormat = (plate: string): boolean => {
-    const cleanPlate = plate.trim().toUpperCase().replace(/\s+/g, '');
+    // Eliminar guiones y espacios, convertir a mayúsculas
+    const cleanPlate = plate.trim().toUpperCase().replace(/[\s-]+/g, '');
 
     // 1. Validación de longitud (máximo 8 caracteres)
     if (cleanPlate.length > 8) return false;
 
-    // 2. Validación de patrón (3-4 dígitos + 3 letras)
-    const pattern = /^(\d{3,4})([A-Z]{3})$/;
-    return pattern.test(cleanPlate);
+    // 2. Validación de patrones válidos:
+    // - Números primero: 3-4 dígitos + 3 letras (ej: 1852PHD)
+    // - Letras primero: 3 letras + 3-4 dígitos (ej: OCW3150)
+    const patternNumbersFirst = /^(\d{3,4})([A-Z]{3})$/;
+    const patternLettersFirst = /^([A-Z]{3})(\d{3,4})$/;
+
+    return patternNumbersFirst.test(cleanPlate) || patternLettersFirst.test(cleanPlate);
   };
 
   const startAutoDetection = () => {
@@ -197,7 +202,7 @@ const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
       // Validar formato
       if (!isValidPlateFormat(result.plateText)) {
         toast.error('El texto detectado no parece una placa válida');
-        setError(`Texto detectado: "${result.plateText}". No cumple el formato de placa (3-4 números + 3 letras).`);
+        setError(`Texto detectado: "${result.plateText}". No cumple el formato (3-4 dígitos + 3 letras O viceversa).`);
         setCapturedImage(null);
         return;
       }
@@ -259,7 +264,7 @@ const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
       // Validar formato
       if (!isValidPlateFormat(result.plateText)) {
         toast.error('El texto detectado no parece una placa válida');
-        setError(`Texto detectado: "${result.plateText}". No cumple el formato de placa (3-4 números + 3 letras).`);
+        setError(`Texto detectado: "${result.plateText}". No cumple el formato (3-4 dígitos + 3 letras O viceversa).`);
         setCapturedImage(null);
         return;
       }
