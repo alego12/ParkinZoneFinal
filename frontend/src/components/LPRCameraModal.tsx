@@ -7,12 +7,14 @@ interface LPRCameraModalProps {
   isOpen: boolean;
   onClose: () => void;
   onPlateDetected: (plate: string) => void;
+  onError?: (error: string) => void;
 }
 
 const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
   isOpen,
   onClose,
-  onPlateDetected
+  onPlateDetected,
+  onError
 }) => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -68,8 +70,10 @@ const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
 
     } catch (err) {
       console.error('Error accessing camera:', err);
-      setError('No se pudo acceder a la cámara');
+      const errorMsg = 'No se pudo acceder a la cámara';
+      setError(errorMsg);
       toast.error('Error al acceder a la cámara. Intenta subir una imagen.');
+      onError?.(errorMsg);
     }
   };
 
@@ -181,6 +185,7 @@ const LPRCameraModal: React.FC<LPRCameraModalProps> = ({
       console.error('Error detecting plate:', err);
       setError('Error al detectar la placa. Por favor, intenta de nuevo.');
       toast.error('Error al detectar la placa');
+      onError?.('Error al detectar la placa');
       setCapturedImage(null);
     } finally {
       setProcessing(false);
